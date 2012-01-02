@@ -1,14 +1,16 @@
 package cache
 
 import (
+	"fmt"
+	"reflect"
 	"runtime"
 	"sync"
 	"time"
 )
 
-// Cache is an in-memory cache similar to memcached that is suitable for applications
-// running on a single machine. Any object can be stored, for a given duration or forever,
-// and the cache can be used safely by multiple goroutines.
+// Cache is an in-memory key:value store cache similar to memcached that is suitable for
+// applications running on a single machine. Any object can be stored, for a given duration
+// or forever, and the cache can be used safely by multiple goroutines.
 //
 // Installation:
 //     goinstall github.com/pmylund/go-cache
@@ -33,8 +35,8 @@ import (
 //
 //     // Since Go is statically typed, and cache values can be anything, type assertion
 //     // is needed when values are being passed to functions that don't take arbitrary types,
-//     // (i.e. interface{}). The simplest way to do this for values which will only be passed
-//     // once is:
+//     // (i.e. interface{}). The simplest way to do this for values which will only be used
+//     // once--e.g. for passing to another function--is:
 //     foo, found := c.Get("foo")
 //     if found {
 //             MyFunction(foo.(string))
@@ -51,6 +53,7 @@ import (
 //     if x, found := c.Get("foo"); found {
 //             foo = x.(string)
 //     }
+//     ...
 //     // foo can then be passed around freely as a string
 //
 //     // Want performance? Store pointers!
@@ -107,7 +110,7 @@ type janitor struct {
 
 // Adds an item to the cache. If the duration is 0, the cache's default expiration time
 // is used. If it is -1, the item never expires.
-func (c *cache) Set(key string, x interface{}, d time.Duration) {
+func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -122,7 +125,7 @@ func (c *cache) Set(key string, x interface{}, d time.Duration) {
 		t := time.Now().Add(d)
 		e = &t
 	}
-	c.Items[key] = &Item{
+	c.Items[k] = &Item{
 		Object: x,
 		Expires: expires,
 		Expiration: e,
@@ -130,27 +133,91 @@ func (c *cache) Set(key string, x interface{}, d time.Duration) {
 }
 
 // Gets an item from the cache.
-func (c *cache) Get(key string) (interface{}, bool) {
+func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	item, found := c.Items[key]
+	item, found := c.Items[k]
 	if !found {
 		return nil, false
 	}
 	if item.Expired() {
-		delete(c.Items, key)
+		delete(c.Items, k)
 		return nil, false
 	}
 	return item.Object, true
 }
 
-// Deletes an item from the cache. Does nothing if the item does not exist in the cache.
-func (c *cache) Delete(key string) {
+// Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
+// uint32, uint64, float32 or float64 by n. Returns an error if the item's value is
+// not an integer, if it was not found, or if it is not possible to increment it by
+// n.
+func (c *cache) IncrementFloat(k string, n float64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	delete(c.Items, key)
+	v, found := c.Items[k]
+	if !found {
+		return fmt.Errorf("V not found")
+	}
+
+	t := reflect.TypeOf(v.Object)
+	switch t.Kind() {
+	default:
+		return fmt.Errorf("The value of %s is not an integer", k)
+	case reflect.Uint:
+		v.Object = v.Object.(uint) + uint(n)
+	case reflect.Uintptr:
+		v.Object = v.Object.(uintptr) + uintptr(n)
+	case reflect.Uint8:
+		v.Object = v.Object.(uint8) + uint8(n)
+	case reflect.Uint16:
+		v.Object = v.Object.(uint16) + uint16(n)
+	case reflect.Uint32:
+		v.Object = v.Object.(uint32) + uint32(n)
+	case reflect.Uint64:
+		v.Object = v.Object.(uint64) + uint64(n)
+	case reflect.Int:
+		v.Object = v.Object.(int) + int(n)
+	case reflect.Int8:
+		v.Object = v.Object.(int8) + int8(n)
+	case reflect.Int16:
+		v.Object = v.Object.(int16) + int16(n)
+	case reflect.Int32:
+		v.Object = v.Object.(int32) + int32(n)
+	case reflect.Int64:
+		v.Object = v.Object.(int64) + int64(n)
+	case reflect.Float32:
+		v.Object = v.Object.(float32) + float32(n)
+	case reflect.Float64:
+		v.Object = v.Object.(float64) + n
+	}
+	return nil
+}
+
+// Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
+// uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
+// is not an integer, if it was not found, or if it is not possible to increment it
+// by n.
+func (c *cache) Increment(k string, n int64) error {
+	return c.IncrementFloat(k, float64(n))
+}
+
+// Decrement an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
+// uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
+// is not an integer, if it was not found, or if it is not possible to decrement it
+// by n.
+func (c *cache) Decrement(k string, n int64) error {
+	return c.Increment(k, n*-1)
+}
+
+
+// Deletes an item from the cache. Does nothing if the item does not exist in the cache.
+func (c *cache) Delete(k string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.Items, k)
 }
 
 // Deletes all expired items from the cache.
@@ -163,7 +230,6 @@ func (c *cache) DeleteExpired() {
 			delete(c.Items, k)
 		}
 	}
-
 }
 
 // Deletes all items in the cache
