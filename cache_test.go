@@ -95,3 +95,27 @@ func TestCacheTimes(t *testing.T) {
 		t.Error("Found d when it should have been automatically deleted (later than the default)")
 	}
 }
+
+type TestStruct struct {
+	Num int
+}
+
+func TestStorePointerToStruct(t *testing.T) {
+	tc := New(0, 0)
+	tc.Set("foo", &TestStruct{Num: 1}, 0)
+	x, found := tc.Get("foo")
+	if !found {
+		t.Fatal("*TestStruct was not found for foo")
+	}
+	foo := x.(*TestStruct)
+	foo.Num++
+
+	y, found := tc.Get("foo")
+	if !found {
+		t.Fatal("*TestStruct was not found for foo (second time)")
+	}
+	bar := y.(*TestStruct)
+	if bar.Num != 2 {
+		t.Fatal("TestStruct.Num is not 2")
+	}
+}

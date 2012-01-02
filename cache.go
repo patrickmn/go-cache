@@ -59,7 +59,28 @@ import (
 //             foo := x.(*MyStruct)
 //             ...
 //     }
-
+//
+// If you store a reference type like a pointer, slice, map or channel, you do not need to
+// run Set if you modify the underlying data. The cache does not serialize its data, so if
+// you modify a struct whose pointer you've stored in the cache, retrieving that pointer
+// with Get will point you to the same data:
+//
+//     foo := &MyStruct{Num: 1}
+//     c.Set("foo", foo, 0)
+//     ...
+//     x, _ := c.Get("foo")
+//     foo := x.(MyStruct)
+//     fmt.Println(foo.Num)
+//     ...
+//     foo.Num++
+//     ...
+//     x, _ := c.Get("foo")
+//     foo := x.(MyStruct)
+//     foo.Println(foo.Num)
+//
+// will print:
+//     1
+//     2
 
 type Cache struct {
 	*cache
@@ -146,7 +167,7 @@ func (c *cache) DeleteExpired() {
 }
 
 // Deletes all items in the cache
-func (c *cache) Purge() {
+func (c *cache) Flush() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
