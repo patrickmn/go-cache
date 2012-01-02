@@ -339,7 +339,7 @@ func TestDecrementInt64(t *testing.T) {
 	tc.Set("int64", int64(5), 0)
 	err := tc.Decrement("int64", 2)
 	if err != nil {
-		t.Error("Error incrementing:", err)
+		t.Error("Error decrementing:", err)
 	}
 	x, found := tc.Get("int64")
 	if !found {

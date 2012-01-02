@@ -288,10 +288,10 @@ func stopJanitor(c *Cache) {
 }
 
 // Returns a new cache with a given default expiration duration and default cleanup
-// interval. If the expiration duration is less than 1, the items in the cache never expire
-// and have to be deleted manually. If the cleanup interval is less than one, expired
-// items are not deleted from the cache before their next lookup or before calling
-// DeleteExpired.
+// interval. If the expiration duration is less than 1, the items in the cache never
+// expire and must be deleted manually. If the cleanup interval is less than one,
+// expired items are not deleted from the cache before their next lookup or before
+// calling DeleteExpired.
 func New(de, ci time.Duration) *Cache {
 	if de == 0 {
 		de = -1
