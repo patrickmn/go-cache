@@ -126,8 +126,8 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 		e = &t
 	}
 	c.Items[k] = &Item{
-		Object: x,
-		Expires: expires,
+		Object:     x,
+		Expires:    expires,
 		Expiration: e,
 	}
 }
@@ -235,7 +235,6 @@ func (c *cache) Decrement(k string, n int64) error {
 	return c.Increment(k, n*-1)
 }
 
-
 // Deletes an item from the cache. Does nothing if the item does not exist in the cache.
 func (c *cache) Delete(k string) {
 	c.mu.Lock()
@@ -272,7 +271,6 @@ func (i *Item) Expired() bool {
 	return i.Expiration.Before(time.Now())
 }
 
-
 func (j *janitor) Run(c *cache) {
 	j.stop = make(chan bool)
 	tick := time.Tick(j.Interval)
@@ -305,8 +303,8 @@ func New(de, ci time.Duration) *Cache {
 	}
 	c := &cache{
 		DefaultExpiration: de,
-		Items: map[string]*Item{},
-		mu: &sync.Mutex{},
+		Items:             map[string]*Item{},
+		mu:                &sync.Mutex{},
 	}
 	if ci > 0 {
 		j := &janitor{
@@ -316,9 +314,9 @@ func New(de, ci time.Duration) *Cache {
 		go j.Run(c)
 	}
 	// This trick ensures that the janitor goroutine (which--granted it was enabled--is
-        // running DeleteExpired on c forever, if it was enabled) does not keep the returned C
-	// object from being garbage collected. When it is garbage collected, the finalizer stops
-	// the janitor goroutine, after which c is collected.
+	// running DeleteExpired on c forever) does not keep the returned C object from being
+	// garbage collected. When it is garbage collected, the finalizer stops the janitor
+	// goroutine, after which c is collected.
 	C := &Cache{c}
 	if ci > 0 {
 		runtime.SetFinalizer(C, stopJanitor)

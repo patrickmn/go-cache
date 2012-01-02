@@ -33,7 +33,7 @@ func TestCache(t *testing.T) {
 	}
 	if x == nil {
 		t.Error("x for a is nil")
-	} else if a2 := x.(int); a2 + 2 != 3 {
+	} else if a2 := x.(int); a2+2 != 3 {
 		t.Error("a2 (which should be 1) plus 2 does not equal 3; value:", a2)
 	}
 
@@ -43,7 +43,7 @@ func TestCache(t *testing.T) {
 	}
 	if x == nil {
 		t.Error("x for b is nil")
-	} else if b2 := x.(string); b2 + "B" != "bB" {
+	} else if b2 := x.(string); b2+"B" != "bB" {
 		t.Error("b2 (which should be b) plus B does not equal bB; value:", b2)
 	}
 
@@ -53,7 +53,7 @@ func TestCache(t *testing.T) {
 	}
 	if x == nil {
 		t.Error("x for c is nil")
-	} else if c2 := x.(float64); c2 + 1.2 != 4.7 {
+	} else if c2 := x.(float64); c2+1.2 != 4.7 {
 		t.Error("c2 (which should be 3.5) plus 1.2 does not equal 4.7; value:", c2)
 	}
 }
@@ -67,13 +67,13 @@ func TestCacheTimes(t *testing.T) {
 	tc.Set("c", 3, 20*time.Millisecond)
 	tc.Set("d", 4, 70*time.Millisecond)
 
-	<-time.After(25*time.Millisecond)
+	<-time.After(25 * time.Millisecond)
 	_, found = tc.Get("c")
 	if found {
 		t.Error("Found c when it should have been automatically deleted")
 	}
 
-	<-time.After(30*time.Millisecond)
+	<-time.After(30 * time.Millisecond)
 	_, found = tc.Get("a")
 	if found {
 		t.Error("Found a when it should have been automatically deleted")
@@ -89,7 +89,7 @@ func TestCacheTimes(t *testing.T) {
 		t.Error("Did not find d even though it was set to expire later than the default")
 	}
 
-	<-time.After(20*time.Millisecond)
+	<-time.After(20 * time.Millisecond)
 	_, found = tc.Get("d")
 	if found {
 		t.Error("Found d when it should have been automatically deleted (later than the default)")
