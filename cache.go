@@ -108,8 +108,8 @@ type janitor struct {
 	stop     chan bool
 }
 
-// Adds an item to the cache. If the duration is 0, the cache's default expiration time
-// is used. If it is -1, the item never expires.
+// Adds an item to the cache, replacing any existing item. If the duration is 0, the
+// cache's default expiration time is used. If it is -1, the item never expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -130,6 +130,30 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 		Expires: expires,
 		Expiration: e,
 	}
+}
+
+// TODO: Add and Replace aren't completely atomic
+
+// Adds an item to the cache only if an item doesn't already exist for the given key,
+// or if the existing item has expired. Returns an error if not.
+func (c *cache) Add(k string, x interface{}, d time.Duration) error {
+	_, found := c.Get(k)
+	if found {
+		return fmt.Errorf("Item %s already exists", k)
+	}
+	c.Set(k, x, d)
+	return nil
+}
+
+// Sets a new value for the cache item only if it already exists. Returns an error if
+// it does not.
+func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
+	_, found := c.Get(k)
+	if !found {
+		return fmt.Errorf("Item %s doesn't exist", k)
+	}
+	c.Set(k, x, d)
+	return nil
 }
 
 // Gets an item from the cache.

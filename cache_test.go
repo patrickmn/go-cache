@@ -349,3 +349,28 @@ func TestDecrementInt64(t *testing.T) {
 		t.Error("int64 is not 3:", x)
 	}
 }
+
+func TestAdd(t *testing.T) {
+	tc := New(0, 0)
+	err := tc.Add("foo", "bar", 0)
+	if err != nil {
+		t.Error("Couldn't add foo even though it shouldn't exist")
+	}
+	err = tc.Add("foo", "baz", 0)
+	if err == nil {
+		t.Error("Successfully added another foo when it should have returned an error")
+	}
+}
+
+func TestReplace(t *testing.T) {
+	tc := New(0, 0)
+	err := tc.Replace("foo", "bar", 0)
+	if err == nil {
+		t.Error("Replaced foo when it shouldn't exist")
+	}
+	tc.Set("foo", "bar", 0)
+	err = tc.Replace("foo", "bar", 0)
+	if err != nil {
+		t.Error("Couldn't replace existing key foo")
+	}
+}
