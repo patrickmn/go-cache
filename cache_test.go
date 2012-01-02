@@ -374,3 +374,37 @@ func TestReplace(t *testing.T) {
 		t.Error("Couldn't replace existing key foo")
 	}
 }
+
+func TestDelete(t *testing.T) {
+	tc := New(0, 0)
+	tc.Set("foo", "bar", 0)
+	tc.Delete("foo")
+	x, found := tc.Get("foo")
+	if found {
+		t.Error("foo was found, but it should have been deleted")
+	}
+	if x != nil {
+		t.Error("x is not nil:", x)
+	}
+}
+
+func TestFlush(t *testing.T) {
+	tc := New(0, 0)
+	tc.Set("foo", "bar", 0)
+	tc.Set("baz", "yes", 0)
+	tc.Flush()
+	x, found := tc.Get("foo")
+	if found {
+		t.Error("foo was found, but it should have been deleted")
+	}
+	if x != nil {
+		t.Error("x is not nil:", x)
+	}
+	x, found = tc.Get("baz")
+	if found {
+		t.Error("baz was found, but it should have been deleted")
+	}
+	if x != nil {
+		t.Error("x is not nil:", x)
+	}
+}
