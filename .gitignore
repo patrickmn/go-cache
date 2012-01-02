@@ -1,0 +1,7 @@
+_test*
+src/_test*
+_obj/
+*.5
+*.6
+*.8
+*.out
