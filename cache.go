@@ -182,7 +182,7 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 
 	v, found := c.Items[k]
 	if !found {
-		return fmt.Errorf("V not found")
+		return fmt.Errorf("Item not found")
 	}
 
 	t := reflect.TypeOf(v.Object)
