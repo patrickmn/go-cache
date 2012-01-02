@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Cache is an in-memory key:value store cache similar to memcached that is suitable for
+// Cache is an in-memory key:value store/cache similar to memcached that is suitable for
 // applications running on a single machine. Any object can be stored, for a given duration
 // or forever, and the cache can be used safely by multiple goroutines.
 //
