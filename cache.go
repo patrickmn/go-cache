@@ -99,7 +99,6 @@ type cache struct {
 
 type Item struct {
 	Object     interface{}
-	Expires    bool
 	Expiration *time.Time
 }
 
@@ -115,19 +114,15 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	defer c.mu.Unlock()
 
 	var e *time.Time
-	expires := true
 	if d == 0 {
 		d = c.DefaultExpiration
 	}
-	if d == -1 {
-		expires = false
-	} else {
+	if d > 0 {
 		t := time.Now().Add(d)
 		e = &t
 	}
 	c.Items[k] = &Item{
 		Object:     x,
-		Expires:    expires,
 		Expiration: e,
 	}
 }
