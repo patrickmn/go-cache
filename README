@@ -78,51 +78,51 @@ will print:
 Reference:
 
 func New(de, ci time.Duration) *Cache
-Returns a new cache with a given default expiration duration and default cleanup
-interval. If the expiration duration is less than 1, the items in the cache never
-expire and must be deleted manually. If the cleanup interval is less than one,
-expired items are not deleted from the cache before their next lookup or before
-calling DeleteExpired.
+    Returns a new cache with a given default expiration duration and default cleanup
+    interval. If the expiration duration is less than 1, the items in the cache never
+    expire and must be deleted manually. If the cleanup interval is less than one,
+    expired items are not deleted from the cache before their next lookup or before
+    calling DeleteExpired.
 
 func (c *Cache) Set(k string, x interface{}, d time.Duration)
-Adds an item to the cache, replacing any existing item. If the duration is 0, the
-cache's default expiration time is used. If it is -1, the item never expires.
+    Adds an item to the cache, replacing any existing item. If the duration is 0, the
+    cache's default expiration time is used. If it is -1, the item never expires.
 
 func (c *Cache) Add(k string, x interface{}, d time.Duration) error
-Adds an item to the cache only if an item doesn't already exist for the given key,
-or if the existing item has expired. Returns an error if not.
+    Adds an item to the cache only if an item doesn't already exist for the given key,
+    or if the existing item has expired. Returns an error if not.
 
 func (c *Cache) Replace(k string, x interface{}, d time.Duration) error
-Sets a new value for the cache item only if it already exists. Returns an error if
-it does not.
+    Sets a new value for the cache item only if it already exists. Returns an error if
+    it does not.
 
 func (c *Cache) Get(k string) (interface{}, bool)
-Gets an item from the cache. Returns the item or nil, and a bool indicating whether
-the given key was found in the cache.
+    Gets an item from the cache. Returns the item or nil, and a bool indicating whether
+    the given key was found in the cache.
 
 func (c *Cache) Increment(k string, n int64) error
-Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
-is not an integer, if it was not found, or if it is not possible to increment it
-by n. Passing a negative number will cause the item to be decremented.
+    Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
+    uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
+    is not an integer, if it was not found, or if it is not possible to increment it
+    by n. Passing a negative number will cause the item to be decremented.
 
 func (c *Cache) IncrementFloat(k string, n float64) error
-Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-uint32, uint64, float32 or float64 by n. Returns an error if the item's value is
-not an integer, if it was not found, or if it is not possible to increment it by
-n. Passing a negative number will cause the item to be decremented.
+    Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
+    uint32, uint64, float32 or float64 by n. Returns an error if the item's value is
+    not an integer, if it was not found, or if it is not possible to increment it by
+    n. Passing a negative number will cause the item to be decremented.
 
 func (c *Cache) Decrement(k string, n int64) error
-Decrement an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
-is not an integer, if it was not found, or if it is not possible to decrement it
-by n.
+    Decrement an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
+    uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
+    is not an integer, if it was not found, or if it is not possible to decrement it
+    by n.
 
 func (c *Cache) Delete(k string)
-Deletes an item from the cache. Does nothing if the item does not exist in the cache.
+    Deletes an item from the cache. Does nothing if the item does not exist in the cache.
 
 func (c *Cache) DeleteExpired()
-Deletes all expired items from the cache.
+    Deletes all expired items from the cache.
 
 func (c *Cache) Flush()
-Deletes all items from the cache.
+    Deletes all items from the cache.
