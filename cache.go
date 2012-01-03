@@ -151,7 +151,8 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
-// Gets an item from the cache.
+// Gets an item from the cache. Returns the item or nil, and a bool indicating whether
+// the given key was found in the cache.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -170,7 +171,7 @@ func (c *cache) Get(k string) (interface{}, bool) {
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
 // uint32, uint64, float32 or float64 by n. Returns an error if the item's value is
 // not an integer, if it was not found, or if it is not possible to increment it by
-// n.
+// n. Passing a negative number will cause the item to be decremented.
 func (c *cache) IncrementFloat(k string, n float64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -217,7 +218,7 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
 // uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
 // is not an integer, if it was not found, or if it is not possible to increment it
-// by n.
+// by n. Passing a negative number will cause the item to be decremented.
 func (c *cache) Increment(k string, n int64) error {
 	return c.IncrementFloat(k, float64(n))
 }
@@ -250,7 +251,7 @@ func (c *cache) DeleteExpired() {
 	}
 }
 
-// Deletes all items in the cache
+// Deletes all items from the cache.
 func (c *cache) Flush() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
