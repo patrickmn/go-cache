@@ -408,3 +408,50 @@ func TestFlush(t *testing.T) {
 		t.Error("x is not nil:", x)
 	}
 }
+
+func BenchmarkCache(b *testing.B) {
+	tc := New(0, 0)
+	tc.Set("foo", "bar", 0)
+	for i := 0; i < b.N; i++ {
+		tc.Get("foo")
+	}
+}
+
+func BenchmarkMap(b *testing.B) {
+	m := map[string]string{
+		"foo": "bar",
+	}
+	for i := 0; i < b.N; i++ {
+		_, _ = m["foo"]
+	}
+}
+
+func BenchmarkCacheSet(b *testing.B) {
+	tc := New(0, 0)
+	for i := 0; i < b.N; i++ {
+		tc.Set("foo", "bar", 0)
+	}
+}
+
+func BenchmarkMapSet(b *testing.B) {
+	m := map[string]string{}
+	for i := 0; i < b.N; i++ {
+		m["foo"] = "bar"
+	}
+}
+
+func BenchmarkCacheSetDelete(b *testing.B) {
+	tc := New(0, 0)
+	for i := 0; i < b.N; i++ {
+		tc.Set("foo", "bar", 0)
+		tc.Delete("foo")
+	}
+}
+
+func BenchmarkMapSetDelete(b *testing.B) {
+	m := map[string]string{}
+	for i := 0; i < b.N; i++ {
+		m["foo"] = "bar"
+		delete(m, "foo")
+	}
+}
