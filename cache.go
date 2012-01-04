@@ -191,7 +191,7 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 	defer c.mu.Unlock()
 
 	v, found := c.Items[k]
-	if !found {
+	if !found || v.Expired() {
 		return fmt.Errorf("Item not found")
 	}
 
