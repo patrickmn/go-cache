@@ -16,6 +16,8 @@ import (
 //     goinstall github.com/pmylund/go-cache
 //
 // Usage:
+//     import "github.com/pmylund/go-cache"
+//
 //     // Create a cache with a default expiration time of 5 minutes, and which purges
 //     // expired items every 30 seconds
 //     c := cache.New(5*time.Minute, 30*time.Second)
