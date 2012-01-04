@@ -409,7 +409,7 @@ func TestFlush(t *testing.T) {
 	}
 }
 
-func BenchmarkCache(b *testing.B) {
+func BenchmarkCacheGet(b *testing.B) {
 	tc := New(0, 0)
 	tc.Set("foo", "bar", 0)
 	for i := 0; i < b.N; i++ {
@@ -417,7 +417,7 @@ func BenchmarkCache(b *testing.B) {
 	}
 }
 
-func BenchmarkMap(b *testing.B) {
+func BenchmarkMapGet(b *testing.B) {
 	m := map[string]string{
 		"foo": "bar",
 	}
@@ -445,6 +445,16 @@ func BenchmarkCacheSetDelete(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		tc.Set("foo", "bar", 0)
 		tc.Delete("foo")
+	}
+}
+
+func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
+	tc := New(0, 0)
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+	for i := 0; i < b.N; i++ {
+		tc.set("foo", "bar", 0)
+		tc.delete("foo")
 	}
 }
 
