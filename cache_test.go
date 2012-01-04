@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+const (
+        Nanosecond  = 1
+        Microsecond = 1000 * Nanosecond
+        Millisecond = 1000 * Microsecond
+        Second      = 1000 * Millisecond
+        Minute      = 60 * Second
+        Hour        = 60 * Minute
+)
+
 func TestCache(t *testing.T) {
 	tc := New(0, 0)
 
@@ -61,19 +70,19 @@ func TestCache(t *testing.T) {
 func TestCacheTimes(t *testing.T) {
 	var found bool
 
-	tc := New(50*time.Millisecond, 1*time.Millisecond)
+	tc := New(50*Millisecond, 1*Millisecond)
 	tc.Set("a", 1, 0)
 	tc.Set("b", 2, -1)
-	tc.Set("c", 3, 20*time.Millisecond)
-	tc.Set("d", 4, 70*time.Millisecond)
+	tc.Set("c", 3, 20*Millisecond)
+	tc.Set("d", 4, 70*Millisecond)
 
-	<-time.After(25 * time.Millisecond)
+	<-time.After(25 * Millisecond)
 	_, found = tc.Get("c")
 	if found {
 		t.Error("Found c when it should have been automatically deleted")
 	}
 
-	<-time.After(30 * time.Millisecond)
+	<-time.After(30 * Millisecond)
 	_, found = tc.Get("a")
 	if found {
 		t.Error("Found a when it should have been automatically deleted")
@@ -89,7 +98,7 @@ func TestCacheTimes(t *testing.T) {
 		t.Error("Did not find d even though it was set to expire later than the default")
 	}
 
-	<-time.After(20 * time.Millisecond)
+	<-time.After(20 * Millisecond)
 	_, found = tc.Get("d")
 	if found {
 		t.Error("Found d when it should have been automatically deleted (later than the default)")
