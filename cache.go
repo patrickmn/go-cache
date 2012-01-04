@@ -72,13 +72,13 @@ import (
 //     c.Set("foo", foo, 0)
 //     ...
 //     x, _ := c.Get("foo")
-//     foo := x.(MyStruct)
+//     foo := x.(*MyStruct)
 //     fmt.Println(foo.Num)
 //     ...
 //     foo.Num++
 //     ...
 //     x, _ := c.Get("foo")
-//     foo := x.(MyStruct)
+//     foo := x.(*MyStruct)
 //     foo.Println(foo.Num)
 //
 // will print:
