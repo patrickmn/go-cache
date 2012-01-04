@@ -2,6 +2,7 @@ package cache
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"runtime"
 	"sync"
@@ -91,7 +92,7 @@ type Cache struct {
 }
 
 type cache struct {
-	DefaultExpiration time.Duration
+	DefaultExpiration int64
 	Items             map[string]*Item
 	mu                *sync.Mutex
 	janitor           *janitor
@@ -99,30 +100,30 @@ type cache struct {
 
 type Item struct {
 	Object     interface{}
-	Expiration *time.Time
+	Expiration *int64
 }
 
 type janitor struct {
-	Interval time.Duration
+	Interval int64
 	stop     chan bool
 }
 
 // Adds an item to the cache, replacing any existing item. If the duration is 0, the
 // cache's default expiration time is used. If it is -1, the item never expires.
-func (c *cache) Set(k string, x interface{}, d time.Duration) {
+func (c *cache) Set(k string, x interface{}, d int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.set(k, x, d)
 }
 
-func (c *cache) set(k string, x interface{}, d time.Duration) {
-	var e *time.Time
+func (c *cache) set(k string, x interface{}, d int64) {
+	var e *int64
 	if d == 0 {
 		d = c.DefaultExpiration
 	}
 	if d > 0 {
-		t := time.Now().Add(d)
+		t := time.Nanoseconds() + d
 		e = &t
 	}
 	c.Items[k] = &Item{
@@ -132,8 +133,8 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 }
 
 // Adds an item to the cache only if an item doesn't already exist for the given key,
-// or if the existing item has expired. Returns an error if not.
-func (c *cache) Add(k string, x interface{}, d time.Duration) error {
+// or if the existing item has expired. Returns an os.Error if not.
+func (c *cache) Add(k string, x interface{}, d int64) os.Error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -145,9 +146,9 @@ func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
-// Sets a new value for the cache item only if it already exists. Returns an error if
+// Sets a new value for the cache item only if it already exists. Returns an os.Error if
 // it does not.
-func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
+func (c *cache) Replace(k string, x interface{}, d int64) os.Error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -181,10 +182,10 @@ func (c *cache) get(k string) (interface{}, bool) {
 }
 
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-// uint32, uint64, float32 or float64 by n. Returns an error if the item's value is
+// uint32, uint64, float32 or float64 by n. Returns an os.Error if the item's value is
 // not an integer, if it was not found, or if it is not possible to increment it by
 // n. Passing a negative number will cause the item to be decremented.
-func (c *cache) IncrementFloat(k string, n float64) error {
+func (c *cache) IncrementFloat(k string, n float64) os.Error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -228,18 +229,18 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 }
 
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-// uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
+// uint32, or uint64, float32 or float64 by n. Returns an os.Error if the item's value
 // is not an integer, if it was not found, or if it is not possible to increment it
 // by n. Passing a negative number will cause the item to be decremented.
-func (c *cache) Increment(k string, n int64) error {
+func (c *cache) Increment(k string, n int64) os.Error {
 	return c.IncrementFloat(k, float64(n))
 }
 
 // Decrement an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-// uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
+// uint32, or uint64, float32 or float64 by n. Returns an os.Error if the item's value
 // is not an integer, if it was not found, or if it is not possible to decrement it
 // by n.
-func (c *cache) Decrement(k string, n int64) error {
+func (c *cache) Decrement(k string, n int64) os.Error {
 	return c.Increment(k, n*-1)
 }
 
@@ -252,7 +253,7 @@ func (c *cache) Delete(k string) {
 }
 
 func (c *cache) delete(k string) {
-	delete(c.Items, k)
+	c.Items[k] = nil, false
 }
 
 // Deletes all expired items from the cache.
@@ -280,7 +281,7 @@ func (i *Item) Expired() bool {
 	if i.Expiration == nil {
 		return false
 	}
-	return i.Expiration.Before(time.Now())
+	return *i.Expiration < time.Nanoseconds()
 }
 
 func (j *janitor) Run(c *cache) {
@@ -309,7 +310,7 @@ func stopJanitor(c *Cache) {
 // expire and must be deleted manually. If the cleanup interval is less than one,
 // expired items are not deleted from the cache before their next lookup or before
 // calling DeleteExpired.
-func New(de, ci time.Duration) *Cache {
+func New(de, ci int64) *Cache {
 	if de == 0 {
 		de = -1
 	}
