@@ -113,6 +113,10 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	c.set(k, x, d)
+}
+
+func (c *cache) set(k string, x interface{}, d time.Duration) {
 	var e *time.Time
 	if d == 0 {
 		d = c.DefaultExpiration
@@ -127,27 +131,31 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	}
 }
 
-// TODO: Add and Replace aren't completely atomic
-
 // Adds an item to the cache only if an item doesn't already exist for the given key,
 // or if the existing item has expired. Returns an error if not.
 func (c *cache) Add(k string, x interface{}, d time.Duration) error {
-	_, found := c.Get(k)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	_, found := c.get(k)
 	if found {
 		return fmt.Errorf("Item %s already exists", k)
 	}
-	c.Set(k, x, d)
+	c.set(k, x, d)
 	return nil
 }
 
 // Sets a new value for the cache item only if it already exists. Returns an error if
 // it does not.
 func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
-	_, found := c.Get(k)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	_, found := c.get(k)
 	if !found {
 		return fmt.Errorf("Item %s doesn't exist", k)
 	}
-	c.Set(k, x, d)
+	c.set(k, x, d)
 	return nil
 }
 
@@ -157,12 +165,16 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	return c.get(k)
+}
+
+func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.Items[k]
 	if !found {
 		return nil, false
 	}
 	if item.Expired() {
-		delete(c.Items, k)
+		c.delete(k)
 		return nil, false
 	}
 	return item.Object, true
@@ -236,6 +248,10 @@ func (c *cache) Delete(k string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	c.delete(k)
+}
+
+func (c *cache) delete(k string) {
 	delete(c.Items, k)
 }
 
@@ -246,7 +262,7 @@ func (c *cache) DeleteExpired() {
 
 	for k, v := range c.Items {
 		if v.Expired() {
-			delete(c.Items, k)
+			c.delete(k)
 		}
 	}
 }
