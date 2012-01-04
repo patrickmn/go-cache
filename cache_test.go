@@ -409,6 +409,49 @@ func TestFlush(t *testing.T) {
 	}
 }
 
+func TestIncrementOverflowInt(t *testing.T) {
+	tc := New(0, 0)
+	tc.Set("int8", int8(127), 0)
+	err := tc.Increment("int8", 1)
+	if err != nil {
+		t.Error("Error incrementing int8: %s", err)
+	}
+	x, _ := tc.Get("int8")
+	int8 := x.(int8)
+	if int8 != -128 {
+		t.Error("int8 did not overflow as expected; value: %d", int8)
+	}
+
+}
+
+func TestIncrementOverflowUint(t *testing.T) {
+	tc := New(0, 0)
+	tc.Set("uint8", uint8(255), 0)
+	err := tc.Increment("uint8", 1)
+	if err != nil {
+		t.Error("Error incrementing int8: %s", err)
+	}
+	x, _ := tc.Get("uint8")
+	uint8 := x.(uint8)
+	if uint8 != 0 {
+		t.Error("uint8 did not overflow as expected; value: %d", uint8)
+	}
+}
+
+func TestDecrementUnderflowUint(t *testing.T) {
+	tc := New(0, 0)
+	tc.Set("uint8", uint8(0), 0)
+	err := tc.Decrement("uint8", 1)
+	if err != nil {
+		t.Error("Error decrementing int8: %s", err)
+	}
+	x, _ := tc.Get("uint8")
+	uint8 := x.(uint8)
+	if uint8 != 255 {
+		t.Error("uint8 did not underflow as expected; value: %d", uint8)
+	}
+}
+
 func BenchmarkCacheGet(b *testing.B) {
 	tc := New(0, 0)
 	tc.Set("foo", "bar", 0)
