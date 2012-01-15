@@ -1,22 +1,24 @@
-go-cache is an in-memory key:value store/cache similar to memcached that is suitable for
-applications running on a single machine. Any object can be stored, for a given duration
-or forever, and the cache can be used safely by multiple goroutines.
+go-cache is an in-memory key:value store/cache similar to memcached that is
+suitable for applications running on a single machine. Any object can be stored,
+for a given duration or forever, and the cache can be used safely by multiple
+goroutines.
 
-Installation:
+== Installation
     goinstall github.com/pmylund/go-cache
 
-Usage:
+== Usage
     import "github.com/pmylund/go-cache"
 
-    // Create a cache with a default expiration time of 5 minutes, and which purges
-    // expired items every 30 seconds
+    // Create a cache with a default expiration time of 5 minutes, and which
+    // purges expired items every 30 seconds
     c := cache.New(5*time.Minute, 30*time.Second)
 
     // Set the value of the key "foo" to "bar", with the default expiration time
     c.Set("foo", "bar", 0)
 
-    // Set the value of the key "baz" to "yes", with no expiration time (the item
-    // won't be removed until it is re-set, or removed using c.Delete("baz")
+    // Set the value of the key "baz" to "yes", with no expiration time
+    // (the item won't be removed until it is re-set, or removed using
+    // c.Delete("baz")
     c.Set("baz", "yes", -1)
 
     // Get the string associated with the key "foo" from the cache
@@ -25,17 +27,18 @@ Usage:
             fmt.Println(foo)
     }
 
-    // Since Go is statically typed, and cache values can be anything, type assertion
-    // is needed when values are being passed to functions that don't take arbitrary types,
-    // (i.e. interface{}). The simplest way to do this for values which will only be used
-    // once--e.g. for passing to another function--is:
+    // Since Go is statically typed, and cache values can be anything, type
+    // assertion is needed when values are being passed to functions that don't
+    // take arbitrary types, (i.e. interface{}). The simplest way to do this for
+    // values which will only be used once--e.g. for passing to another
+    // function--is:
     foo, found := c.Get("foo")
     if found {
             MyFunction(foo.(string))
     }
 
-    // This gets tedious if the value is used several times in the same function. You
-    // might do either of the following instead:
+    // This gets tedious if the value is used several times in the same function.
+    // You might do either of the following instead:
     if x, found := c.Get("foo"); found {
             foo := x.(string)
             ...
@@ -55,10 +58,11 @@ Usage:
             ...
     }
 
-    // If you store a reference type like a pointer, slice, map or channel, you do not need to
-    // run Set if you modify the underlying data. The cache does not serialize its data, so if
-    // you modify a struct whose pointer you've stored in the cache, retrieving that pointer
-    // with Get will point you to the same data:
+    // If you store a reference type like a pointer, slice, map or channel, you
+    // do not need to run Set if you modify the underlying data. The cache does
+    // not serialize its data, so if you modify a struct whose pointer you've
+    // stored in the cache, retrieving that pointer with Get will point you to
+    // the same data:
     foo := &MyStruct{Num: 1}
     c.Set("foo", foo, 0)
     ...
@@ -76,54 +80,58 @@ Usage:
     1
     2
 
-Reference:
+== Reference
 
-    func New(de, ci time.Duration) *Cache
-        Returns a new cache with a given default expiration duration and default cleanup
-        interval. If the expiration duration is less than 1, the items in the cache never
-        expire and must be deleted manually. If the cleanup interval is less than one,
-        expired items are not deleted from the cache before their next lookup or before
-        calling DeleteExpired.
+func New(de, ci time.Duration) *Cache
+    Returns a new cache with a given default expiration duration and default
+    cleanup interval. If the expiration duration is less than 1, the items in
+    the cache never expire and must be deleted manually. If the cleanup interval
+    is less than one, expired items are not deleted from the cache before their
+    next lookup or before calling DeleteExpired.
 
-    func (c *Cache) Set(k string, x interface{}, d time.Duration)
-        Adds an item to the cache, replacing any existing item. If the duration is 0, the
-        cache's default expiration time is used. If it is -1, the item never expires.
+func (c *Cache) Set(k string, x interface{}, d time.Duration)
+    Adds an item to the cache, replacing any existing item. If the duration is 0,
+    the cache's default expiration time is used. If it is -1, the item never
+    expires.
 
-    func (c *Cache) Add(k string, x interface{}, d time.Duration) error
-        Adds an item to the cache only if an item doesn't already exist for the given key,
-        or if the existing item has expired. Returns an error if not.
+func (c *Cache) Add(k string, x interface{}, d time.Duration) error
+    Adds an item to the cache only if an item doesn't already exist for the given
+    key, or if the existing item has expired. Returns an error if not.
 
-    func (c *Cache) Replace(k string, x interface{}, d time.Duration) error
-        Sets a new value for the cache item only if it already exists. Returns an error if
-        it does not.
+func (c *Cache) Replace(k string, x interface{}, d time.Duration) error
+    Sets a new value for the cache item only if it already exists. Returns an
+    error if it does not.
 
-    func (c *Cache) Get(k string) (interface{}, bool)
-        Gets an item from the cache. Returns the item or nil, and a bool indicating whether
-        the given key was found in the cache.
+func (c *Cache) Get(k string) (interface{}, bool)
+    Gets an item from the cache. Returns the item or nil, and a bool indicating
+    whether the given key was found in the cache.
 
-    func (c *Cache) Increment(k string, n int64) error
-        Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-        uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
-        is not an integer, if it was not found, or if it is not possible to increment it
-        by n. Passing a negative number will cause the item to be decremented.
+func (c *Cache) Increment(k string, n int64) error
+    Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
+    uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
+    item's value is not an integer, if it was not found, or if it is not possible
+    to increment it by n. Passing a negative number will cause the item to be
+    decremented.
 
-    func (c *Cache) IncrementFloat(k string, n float64) error
-        Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-        uint32, uint64, float32 or float64 by n. Returns an error if the item's value is
-        not an integer, if it was not found, or if it is not possible to increment it by
-        n. Passing a negative number will cause the item to be decremented.
+func (c *Cache) IncrementFloat(k string, n float64) error
+    Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
+    uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
+    item's value is not an integer, if it was not found, or if it is not possible
+    to increment it by n. Passing a negative number will cause the item to be
+    decremented.
 
-    func (c *Cache) Decrement(k string, n int64) error
-        Decrement an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-        uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
-        is not an integer, if it was not found, or if it is not possible to decrement it
-        by n.
+func (c *Cache) Decrement(k string, n int64) error
+    Decrement an item of type int, int8, int16, int32, int64, uintptr, uint,
+    uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
+    item's value is not an integer, if it was not found, or if it is not possible
+    to decrement it by n.
 
-    func (c *Cache) Delete(k string)
-        Deletes an item from the cache. Does nothing if the item does not exist in the cache.
+func (c *Cache) Delete(k string)
+    Deletes an item from the cache. Does nothing if the item does not exist in
+    the cache.
 
-    func (c *Cache) DeleteExpired()
-        Deletes all expired items from the cache.
+func (c *Cache) DeleteExpired()
+    Deletes all expired items from the cache.
 
-    func (c *Cache) Flush()
-        Deletes all items from the cache.
+func (c *Cache) Flush()
+    Deletes all items from the cache.
