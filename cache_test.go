@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"os"
 	"testing"
 	"time"
 )
@@ -466,6 +467,8 @@ func TestCacheSerialization(t *testing.T) {
 func testFillAndSerialize(t *testing.T, tc *Cache) {
 	tc.Set("a", "a", 0)
 	tc.Set("b", "b", 0)
+	tc.Set("c", "c", 0)
+	tc.Set("expired", "foo", 1*time.Millisecond)
 	tc.Set("*struct", &TestStruct{Num: 1}, 0)
 	tc.Set("[]struct", []TestStruct{
 		{Num: 2},
@@ -482,7 +485,6 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 			&TestStruct{Num: 4716},
 		},
 	}, 0)
-	tc.Set("c", "c", 0) // ordering should be meaningless, but just in case
 
 	fp := &bytes.Buffer{}
 	err := tc.Save(fp)
@@ -518,6 +520,12 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 	}
 	if c.(string) != "c" {
 		t.Error("c is not c")
+	}
+
+	<-time.After(5*time.Millisecond)
+	_, found = oc.Get("expired")
+	if found {
+		t.Error("expired was found")
 	}
 
 	s1, found := oc.Get("*struct")
@@ -572,6 +580,38 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 	if s4r.Children[1].Num != 4716 {
 		t.Error("s4r.Children[1].Num is not 4716")
 	}
+}
+
+func TestFileSerialization(t *testing.T) {
+	tc := New(0, 0)
+	tc.Add("a", "a", 0)
+	tc.Add("b", "b", 0)
+	fname := "_test/cache.dat"
+	tc.SaveFile(fname)
+
+	oc := New(0, 0)
+	oc.Add("a", "aa", 0) // this should not be overwritten
+	oc.LoadFile(fname)
+	a, found := oc.Get("a")
+	if !found {
+		t.Error("a was not found")
+	}
+	astr := a.(string)
+	if astr != "aa" {
+		if astr == "a" {
+			t.Error("a was overwritten")
+		} else {
+			t.Error("a is not aa")
+		}
+	}
+	b, found := oc.Get("b")
+	if !found {
+		t.Error("b was not found")
+	}
+	if b.(string) != "b" {
+		t.Error("b is not b")
+	}
+	os.Remove(fname)
 }
 
 func TestSerializeUnserializable(t *testing.T) {
