@@ -278,7 +278,7 @@ func (c *cache) DeleteExpired() {
 	}
 }
 
-// Writes the cache's items using Gob to an io.Writer
+// Writes the cache's items (using Gob) to an io.Writer.
 func (c *cache) Save(w io.Writer) error {
 	enc := gob.NewEncoder(w)
 
@@ -300,7 +300,7 @@ were stored in cache, at https://github.com/pmylund/go-cache/issues/new`, x)
 }
 
 // Saves the cache's items to the given filename, creating the file if it
-// doesn't exist, and overwriting it if it does
+// doesn't exist, and overwriting it if it does.
 func (c *cache) SaveFile(fname string) error {
 	fp, err := os.Create(fname)
 	if err != nil {
@@ -309,8 +309,8 @@ func (c *cache) SaveFile(fname string) error {
 	return c.Save(fp)
 }
 
-// Adds gob-serialized cache items from an io.Reader, excluding any items that
-// already exist in the current cache
+// Adds (Gob-serialized) cache items from an io.Reader, excluding any items that
+// already exist in the current cache.
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
 	items := map[string]*Item{}
@@ -327,7 +327,7 @@ func (c *cache) Load(r io.Reader) error {
 }
 
 // Loads and adds cache items from the given filename, excluding any items that
-// already exist in the current cache
+// already exist in the current cache.
 func (c *cache) LoadFile(fname string) error {
 	fp, err := os.Open(fname)
 	if err != nil {
