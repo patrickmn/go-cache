@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+type TestStruct struct {
+	Num int
+	Children []*TestStruct
+}
+
 func TestCache(t *testing.T) {
 	tc := New(0, 0)
 
@@ -95,10 +100,6 @@ func TestCacheTimes(t *testing.T) {
 	if found {
 		t.Error("Found d when it should have been automatically deleted (later than the default)")
 	}
-}
-
-type TestStruct struct {
-	Num int
 }
 
 func TestStorePointerToStruct(t *testing.T) {
@@ -474,6 +475,10 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 		&TestStruct{Num: 4},
 		&TestStruct{Num: 5},
 	}, 0)
+	tc.Set("structception", &TestStruct{
+		Num: 42,
+		Children: []*TestStruct{&TestStruct{Num: 6174},},
+	}, 0)
 	tc.Set("c", "c", 0) // ordering should be meaningless, but just in case
 
 	fp := &bytes.Buffer{}
@@ -548,6 +553,18 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 	}
 	if s3r[1].Num != 5 {
 		t.Error("s3r[1].Num is not 5")
+	}
+
+	s4, found := oc.get("structception")
+	if !found {
+		t.Error("structception was not found")
+	}
+	s4r := s4.(*TestStruct)
+	if len(s4r.Children) != 1 {
+		t.Error("Length of s4r.Children is not 1")
+	}
+	if s4r.Children[0].Num != 6174 {
+		t.Error("s4r.Children[0].Num is not 6174")
 	}
 }
 
