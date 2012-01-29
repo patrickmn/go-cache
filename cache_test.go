@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"bytes"
 	"testing"
 	"time"
 )
@@ -449,6 +450,104 @@ func TestDecrementUnderflowUint(t *testing.T) {
 	uint8 := x.(uint8)
 	if uint8 != 255 {
 		t.Error("uint8 did not underflow as expected; value: %d", uint8)
+	}
+}
+
+func TestCacheSerialization(t *testing.T) {
+	tc := New(0, 0)
+	testFillAndSerialize(t, tc)
+
+	// Check if gob.Register behaves properly even after multiple gob.Register
+	// on c.Items (many of which will be the same type)
+	testFillAndSerialize(t, tc)
+}
+
+func testFillAndSerialize(t *testing.T, tc *Cache) {
+	tc.Set("a", "a", 0)
+	tc.Set("b", "b", 0)
+	tc.Set("*struct", &TestStruct{Num: 1}, 0)
+	tc.Set("[]struct", []TestStruct{
+		{Num: 2},
+		{Num: 3},
+	}, 0)
+	tc.Set("[]*struct", []*TestStruct{
+		&TestStruct{Num: 4},
+		&TestStruct{Num: 5},
+	}, 0)
+	tc.Set("c", "c", 0) // ordering should be meaningless, but just in case
+
+	fp := &bytes.Buffer{}
+	err := tc.Save(fp)
+	if err != nil {
+		t.Fatal("Couldn't save cache to fp:", err)
+	}
+
+	oc := New(0, 0)
+	err = oc.Load(fp)
+	if err != nil {
+		t.Fatal("Couldn't load cache from fp:", err)
+	}
+
+	a, found := oc.Get("a")
+	if !found {
+		t.Error("a was not found")
+	}
+	if a.(string) != "a" {
+		t.Error("a is not a")
+	}
+
+	b, found := oc.Get("b")
+	if !found {
+		t.Error("b was not found")
+	}
+	if b.(string) != "b" {
+		t.Error("b is not b")
+	}
+
+	c, found := oc.Get("c")
+	if !found {
+		t.Error("c was not found")
+	}
+	if c.(string) != "c" {
+		t.Error("c is not c")
+	}
+
+	s1, found := oc.Get("*struct")
+	if !found {
+		t.Error("*struct was not found")
+	}
+	if s1.(*TestStruct).Num != 1 {
+		t.Error("*struct.Num is not 1")
+	}
+
+	s2, found := oc.Get("[]struct")
+	if !found {
+		t.Error("[]struct was not found")
+	}
+	s2r := s2.([]TestStruct)
+	if len(s2r) != 2 {
+		t.Error("Length of s2r is not 2")
+	}
+	if s2r[0].Num != 2 {
+		t.Error("s2r[0].Num is not 2")
+	}
+	if s2r[1].Num != 3 {
+		t.Error("s2r[1].Num is not 3")
+	}
+
+	s3, found := oc.get("[]*struct")
+	if !found {
+		t.Error("[]*struct was not found")
+	}
+	s3r := s3.([]*TestStruct)
+	if len(s3r) != 2 {
+		t.Error("Length of s3r is not 2")
+	}
+	if s3r[0].Num != 4 {
+		t.Error("s3r[0].Num is not 4")
+	}
+	if s3r[1].Num != 5 {
+		t.Error("s3r[1].Num is not 5")
 	}
 }
 

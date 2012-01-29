@@ -83,12 +83,28 @@ package cache
 //     2
 
 import (
+	"encoding/gob"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"runtime"
 	"sync"
 	"time"
 )
+
+type Item struct {
+	Object     interface{}
+	Expiration *time.Time
+}
+
+// Returns true if the item has expired.
+func (i *Item) Expired() bool {
+	if i.Expiration == nil {
+		return false
+	}
+	return i.Expiration.Before(time.Now())
+}
 
 type Cache struct {
 	*cache
@@ -100,16 +116,6 @@ type cache struct {
 	Items             map[string]*Item
 	mu                *sync.Mutex
 	janitor           *janitor
-}
-
-type Item struct {
-	Object     interface{}
-	Expiration *time.Time
-}
-
-type janitor struct {
-	Interval time.Duration
-	stop     chan bool
 }
 
 // Adds an item to the cache, replacing any existing item. If the duration is 0, the
@@ -272,6 +278,63 @@ func (c *cache) DeleteExpired() {
 	}
 }
 
+// Writes the cache's items using Gob to an io.Writer
+func (c *cache) Save(w io.Writer) error {
+	enc := gob.NewEncoder(w)
+
+	defer func() {
+		if x := recover(); x != nil {
+			fmt.Printf(`The Gob library paniced while registering the cache's item types!
+Information: %v
+
+The cache will not be saved.
+Please report under what conditions this happened, and particularly what special type of objects
+were stored in cache, at https://github.com/pmylund/go-cache/issues/new`, x)
+		}
+	}()
+	for _, v := range c.Items {
+		gob.Register(v.Object)
+	}
+	err := enc.Encode(&c.Items)
+	return err
+}
+
+// Saves the cache's items to the given filename, creating the file if it
+// doesn't exist, and overwriting it if it does
+func (c *cache) SaveFile(fname string) error {
+	fp, err := os.Create(fname)
+	if err != nil {
+		return err
+	}
+	return c.Save(fp)
+}
+
+// Adds gob-serialized cache items from an io.Reader, excluding any items that
+// already exist in the current cache
+func (c *cache) Load(r io.Reader) error {
+	dec := gob.NewDecoder(r)
+	items := map[string]*Item{}
+	err := dec.Decode(&items)
+	if err == nil {
+		for k, v := range items {
+			_, found := c.Items[k]
+			if !found {
+				c.Items[k] = v
+			}
+		}
+	}
+	return err
+}
+
+// Loads and adds cache items from the given filename
+func (c *cache) LoadFile(fname string) error {
+	fp, err := os.Open(fname)
+	if err != nil {
+		return err
+	}
+	return c.Load(fp)
+}
+
 // Deletes all items from the cache.
 func (c *cache) Flush() {
 	c.mu.Lock()
@@ -280,12 +343,9 @@ func (c *cache) Flush() {
 	c.Items = map[string]*Item{}
 }
 
-// Returns true if the item has expired.
-func (i *Item) Expired() bool {
-	if i.Expiration == nil {
-		return false
-	}
-	return i.Expiration.Before(time.Now())
+type janitor struct {
+	Interval time.Duration
+	stop     chan bool
 }
 
 func (j *janitor) Run(c *cache) {
