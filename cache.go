@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const Version = "1.0"
+
 type Item struct {
 	Object     interface{}
 	Expiration *time.Time
