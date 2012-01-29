@@ -140,19 +140,19 @@ func (c *Cache) DeleteExpired()
 func (c *Cache) Flush()
     Deletes all items from the cache.
 
-func (c *cache) Save(w io.Writer) error
+func (c *Cache) Save(w io.Writer) error
     Writes the cache's items (using Gob) to an io.Writer. Returns an error if
     the serialization fails, e.g. because there are unserializable objects like
     channels in the cache.
 
-func (c *cache) SaveFile(fname string) error
+func (c *Cache) SaveFile(fname string) error
     Saves the cache's items to the given filename, creating the file if it
     doesn't exist, and overwriting it if it does.
 
-func (c *cache) Load(r io.Reader) error
+func (c *Cache) Load(r io.Reader) error
     Adds (Gob-serialized) cache items from an io.Reader, excluding any items that
     already exist in the current cache.
 
-func (c *cache) LoadFile(fname string) error
+func (c *Cache) LoadFile(fname string) error
     Loads and adds cache items from the given filename, excluding any items that
     already exist in the current cache.
