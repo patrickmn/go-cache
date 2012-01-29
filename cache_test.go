@@ -551,6 +551,18 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 	}
 }
 
+func TestSerializeUnserializable(t *testing.T) {
+	tc := New(0, 0)
+	ch := make(chan bool, 1)
+	ch <- true
+	tc.Set("chan", ch, 0)
+	fp := &bytes.Buffer{}
+	err := tc.Save(fp) // this should fail gracefully
+	if err.Error() != "gob NewTypeObject can't handle type: chan bool" {
+		t.Error("Error from Save was not gob NewTypeObject can't handle type chan bool:", err)
+	}
+}
+
 func BenchmarkCacheGet(b *testing.B) {
 	tc := New(0, 0)
 	tc.Set("foo", "bar", 0)
