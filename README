@@ -153,4 +153,4 @@ func (c *cache) Load(r io.Reader) error
 
 func (c *cache) LoadFile(fname string) error
     Loads and adds cache items from the given filename, excluding any items that
-    already exist in the current cache,
+    already exist in the current cache.
