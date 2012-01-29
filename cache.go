@@ -326,7 +326,8 @@ func (c *cache) Load(r io.Reader) error {
 	return err
 }
 
-// Loads and adds cache items from the given filename
+// Loads and adds cache items from the given filename, excluding any items that
+// already exist in the current cache
 func (c *cache) LoadFile(fname string) error {
 	fp, err := os.Open(fname)
 	if err != nil {

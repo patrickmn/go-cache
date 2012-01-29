@@ -3,6 +3,10 @@ suitable for applications running on a single machine. Any object can be stored,
 for a given duration or forever, and the cache can be used safely by multiple
 goroutines.
 
+Although go-cache isn't meant to be used as a database, the entire cache may
+be saved to and loaded from a file (or any io.Reader/Writer) to recover from
+downtime quickly.
+
 == Installation
     goinstall github.com/pmylund/go-cache
 
@@ -135,3 +139,18 @@ func (c *Cache) DeleteExpired()
 
 func (c *Cache) Flush()
     Deletes all items from the cache.
+
+func (c *cache) Save(w io.Writer) error
+    Writes the cache's items using Gob to an io.Writer
+
+func (c *cache) SaveFile(fname string) error
+    Saves the cache's items to the given filename, creating the file if it
+    doesn't exist, and overwriting it if it does.
+
+func (c *cache) Load(r io.Reader) error
+    Adds gob-serialized cache items from an io.Reader, excluding any items that
+    already exist in the current cache
+
+func (c *cache) LoadFile(fname string) error
+    Loads and adds cache items from the given filename, excluding any items that
+    already exist in the current cache
