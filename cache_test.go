@@ -477,7 +477,10 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 	}, 0)
 	tc.Set("structception", &TestStruct{
 		Num: 42,
-		Children: []*TestStruct{&TestStruct{Num: 6174},},
+		Children: []*TestStruct{
+			&TestStruct{Num: 6174},
+			&TestStruct{Num: 4716},
+		},
 	}, 0)
 	tc.Set("c", "c", 0) // ordering should be meaningless, but just in case
 
@@ -560,11 +563,14 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 		t.Error("structception was not found")
 	}
 	s4r := s4.(*TestStruct)
-	if len(s4r.Children) != 1 {
-		t.Error("Length of s4r.Children is not 1")
+	if len(s4r.Children) != 2 {
+		t.Error("Length of s4r.Children is not 2")
 	}
 	if s4r.Children[0].Num != 6174 {
 		t.Error("s4r.Children[0].Num is not 6174")
+	}
+	if s4r.Children[1].Num != 4716 {
+		t.Error("s4r.Children[1].Num is not 4716")
 	}
 }
 
