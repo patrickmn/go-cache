@@ -1,6 +1,6 @@
 go-cache is an in-memory key:value store/cache similar to memcached that is
 suitable for applications running on a single machine. Any object can be stored,
-for a given duration or forever, and the cache can be used safely by multiple
+for a given duration or forever, and the cache can be safely used by multiple
 goroutines.
 
 Although go-cache isn't meant to be used as a persistent datastore, the entire
