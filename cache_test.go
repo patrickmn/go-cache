@@ -2,7 +2,7 @@ package cache
 
 import (
 	"bytes"
-	"os"
+	"io/ioutil"
 	"testing"
 	"time"
 )
@@ -586,12 +586,20 @@ func TestFileSerialization(t *testing.T) {
 	tc := New(0, 0)
 	tc.Add("a", "a", 0)
 	tc.Add("b", "b", 0)
-	fname := "_test/cache.dat"
+	f, err := ioutil.TempFile("", "go-cache-cache.dat")
+	if err != nil {
+		t.Fatal("Couldn't create cache file:", err)
+	}
+	fname := f.Name()
+	f.Close()
 	tc.SaveFile(fname)
 
 	oc := New(0, 0)
 	oc.Add("a", "aa", 0) // this should not be overwritten
-	oc.LoadFile(fname)
+	err = oc.LoadFile(fname)
+	if err != nil {
+		t.Error(err)
+	}
 	a, found := oc.Get("a")
 	if !found {
 		t.Error("a was not found")
@@ -611,7 +619,6 @@ func TestFileSerialization(t *testing.T) {
 	if b.(string) != "b" {
 		t.Error("b is not b")
 	}
-	os.Remove(fname)
 }
 
 func TestSerializeUnserializable(t *testing.T) {

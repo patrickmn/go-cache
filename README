@@ -9,7 +9,7 @@ from downtime quickly.
 
 == Installation
 
-goinstall github.com/pmylund/go-cache
+go get github.com/pmylund/go-cache
 
 == Usage
 
