@@ -8,7 +8,7 @@ import (
 )
 
 type TestStruct struct {
-	Num int
+	Num      int
 	Children []*TestStruct
 }
 
@@ -522,7 +522,7 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 		t.Error("c is not c")
 	}
 
-	<-time.After(5*time.Millisecond)
+	<-time.After(5 * time.Millisecond)
 	_, found = oc.Get("expired")
 	if found {
 		t.Error("expired was found")
