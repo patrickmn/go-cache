@@ -209,7 +209,8 @@ Information: %v
 
 The cache will not be saved.
 Please report under what conditions this happened, and particularly what special type of objects
-were stored in cache, at https://github.com/pmylund/go-cache/issues/new`, x)
+were stored in cache, at https://github.com/pmylund/go-cache/issues/new
+`, x)
 		}
 	}()
 	for _, v := range c.Items {
