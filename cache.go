@@ -202,6 +202,7 @@ func (c *cache) DeleteExpired() {
 func (c *cache) Save(w io.Writer) error {
 	enc := gob.NewEncoder(w)
 
+	var err error
 	defer func() {
 		if x := recover(); x != nil {
 			fmt.Printf(`The Gob library paniced while registering the cache's item types!
@@ -211,12 +212,13 @@ The cache will not be saved.
 Please report under what conditions this happened, and particularly what special type of objects
 were stored in cache, at https://github.com/pmylund/go-cache/issues/new
 `, x)
+			err = fmt.Errorf("Error registering item types with Gob library")
 		}
 	}()
 	for _, v := range c.Items {
 		gob.Register(v.Object)
 	}
-	err := enc.Encode(&c.Items)
+	err = enc.Encode(&c.Items)
 	return err
 }
 
