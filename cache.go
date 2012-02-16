@@ -34,7 +34,7 @@ type Cache struct {
 type cache struct {
 	DefaultExpiration time.Duration
 	Items             map[string]*Item
-	mu                *sync.Mutex
+	mu                sync.Mutex
 	janitor           *janitor
 }
 
@@ -303,7 +303,7 @@ func New(de, ci time.Duration) *Cache {
 	c := &cache{
 		DefaultExpiration: de,
 		Items:             map[string]*Item{},
-		mu:                &sync.Mutex{},
+		mu:                sync.Mutex{},
 	}
 	if ci > 0 {
 		j := &janitor{
