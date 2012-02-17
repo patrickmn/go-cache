@@ -675,11 +675,11 @@ func BenchmarkCacheSetDelete(b *testing.B) {
 func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
 	tc := New(0, 0)
 	tc.mu.Lock()
-	defer tc.mu.Unlock()
 	for i := 0; i < b.N; i++ {
 		tc.set("foo", "bar", 0)
 		tc.delete("foo")
 	}
+	tc.mu.Unlock()
 }
 
 func BenchmarkMapSetDelete(b *testing.B) {
