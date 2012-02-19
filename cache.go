@@ -199,10 +199,9 @@ func (c *cache) DeleteExpired() {
 }
 
 // Writes the cache's items (using Gob) to an io.Writer.
-func (c *cache) Save(w io.Writer) error {
+func (c *cache) Save(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
 
-	var err error
 	defer func() {
 		if x := recover(); x != nil {
 			fmt.Printf(`The Gob library paniced while registering the cache's item types!
@@ -219,7 +218,7 @@ were stored in cache, at https://github.com/pmylund/go-cache/issues/new
 		gob.Register(v.Object)
 	}
 	err = enc.Encode(&c.Items)
-	return err
+	return
 }
 
 // Saves the cache's items to the given filename, creating the file if it
