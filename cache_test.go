@@ -3,6 +3,7 @@ package cache
 import (
 	"bytes"
 	"io/ioutil"
+	"sync"
 	"testing"
 	"time"
 )
@@ -641,6 +642,20 @@ func BenchmarkCacheGet(b *testing.B) {
 	}
 }
 
+func BenchmarkCacheGetConcurrent(b *testing.B) {
+	tc := New(0, 0)
+	tc.Set("foo", "bar", 0)
+	wg := new(sync.WaitGroup)
+	wg.Add(b.N)
+	for i := 0; i < b.N; i++ {
+		go func() {
+			tc.Get("foo")
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
 func BenchmarkMapGet(b *testing.B) {
 	m := map[string]string{
 		"foo": "bar",
@@ -649,6 +664,21 @@ func BenchmarkMapGet(b *testing.B) {
 		_, _ = m["foo"]
 	}
 }
+
+// func BenchmarkMapGetConcurrent(b *testing.B) {
+// 	m := map[string]string{
+// 		"foo": "bar",
+// 	}
+// 	wg := new(sync.WaitGroup)
+// 	wg.Add(b.N)
+// 	for i := 0; i < b.N; i++ {
+// 		go func() {
+// 			_, _ = m["foo"]
+// 			wg.Done()
+// 		}()
+// 	}
+// 	wg.Wait()
+// }
 
 func BenchmarkCacheSet(b *testing.B) {
 	tc := New(0, 0)
