@@ -204,13 +204,6 @@ func (c *cache) Save(w io.Writer) (err error) {
 
 	defer func() {
 		if x := recover(); x != nil {
-			fmt.Printf(`The Gob library paniced while registering the cache's item types!
-Information: %v
-
-The cache will not be saved.
-Please report under what conditions this happened, and particularly what special type of objects
-were stored in cache, at https://github.com/pmylund/go-cache/issues/new
-`, x)
 			err = fmt.Errorf("Error registering item types with Gob library")
 		}
 	}()
