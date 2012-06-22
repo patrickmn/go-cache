@@ -735,12 +735,12 @@ func BenchmarkMutexMapSetDelete(b *testing.B) {
 
 func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
 	tc := New(0, 0)
-	tc.mu.Lock()
 	for i := 0; i < b.N; i++ {
+		tc.mu.Lock()
 		tc.set("foo", "bar", 0)
 		tc.delete("foo")
+		tc.mu.Unlock()
 	}
-	tc.mu.Unlock()
 }
 
 func BenchmarkMutexMapSetDeleteSingleLock(b *testing.B) {
