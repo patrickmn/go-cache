@@ -36,7 +36,7 @@ type cache struct {
 	janitor           *janitor
 }
 
-// Adds an item to the cache, replacing any existing item. If the duration is 0,
+// Add an item to the cache, replacing any existing item. If the duration is 0,
 // the cache's default expiration time is used. If it is -1, the item never
 // expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
@@ -62,8 +62,8 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	}
 }
 
-// Adds an item to the cache only if an item doesn't already exist for the given
-// key, or if the existing item has expired. Returns an error if not.
+// Add an item to the cache only if an item doesn't already exist for the given
+// key, or if the existing item has expired. Returns an error otherwise.
 func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
@@ -76,7 +76,7 @@ func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
-// Sets a new value for the cache item only if it already exists. Returns an
+// Set a new value for the cache key only if it already exists. Returns an
 // error if it does not.
 func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	c.mu.Lock()
@@ -90,8 +90,8 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
-// Gets an item from the cache. Returns the item or nil, and a bool indicating
-// whether the given key was found in the cache.
+// Get an item from the cache. Returns the item or nil, and a bool indicating
+// whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.Lock()
 	x, found := c.get(k)
@@ -177,8 +177,7 @@ func (c *cache) Decrement(k string, n int64) error {
 	return c.Increment(k, n*-1)
 }
 
-// Deletes an item from the cache. Does nothing if the item does not exist in
-// the cache.
+// Delete an item from the cache. Does nothing if the key is not in the cache.
 func (c *cache) Delete(k string) {
 	c.mu.Lock()
 	c.delete(k)
@@ -189,7 +188,7 @@ func (c *cache) delete(k string) {
 	delete(c.Items, k)
 }
 
-// Deletes all expired items from the cache.
+// Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
 	c.mu.Lock()
 	for k, v := range c.Items {
@@ -200,7 +199,7 @@ func (c *cache) DeleteExpired() {
 	c.mu.Unlock()
 }
 
-// Writes the cache's items (using Gob) to an io.Writer.
+// Write the cache's items (using Gob) to an io.Writer.
 func (c *cache) Save(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
 
@@ -216,7 +215,7 @@ func (c *cache) Save(w io.Writer) (err error) {
 	return
 }
 
-// Saves the cache's items to the given filename, creating the file if it
+// Save the cache's items to the given filename, creating the file if it
 // doesn't exist, and overwriting it if it does.
 func (c *cache) SaveFile(fname string) error {
 	fp, err := os.Create(fname)
@@ -226,8 +225,8 @@ func (c *cache) SaveFile(fname string) error {
 	return c.Save(fp)
 }
 
-// Adds (Gob-serialized) cache items from an io.Reader, excluding any items that
-// already exist in the current cache.
+// Add (Gob-serialized) cache items from an io.Reader, excluding any items with
+// keys that already exist in the current cache.
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
 	items := map[string]*Item{}
@@ -243,8 +242,8 @@ func (c *cache) Load(r io.Reader) error {
 	return err
 }
 
-// Loads and adds cache items from the given filename, excluding any items that
-// already exist in the current cache.
+// Load and add cache items from the given filename, excluding any items with
+// keys that already exist in the current cache.
 func (c *cache) LoadFile(fname string) error {
 	fp, err := os.Open(fname)
 	if err != nil {
@@ -253,7 +252,7 @@ func (c *cache) LoadFile(fname string) error {
 	return c.Load(fp)
 }
 
-// Deletes all items from the cache.
+// Delete all items from the cache.
 func (c *cache) Flush() {
 	c.mu.Lock()
 	c.Items = map[string]*Item{}
@@ -286,7 +285,7 @@ func stopJanitor(c *Cache) {
 	c.janitor.Stop()
 }
 
-// Returns a new cache with a given default expiration duration and cleanup
+// Return a new cache with a given default expiration duration and cleanup
 // interval. If the expiration duration is less than 1, the items in the cache
 // never expire (by default), and must be deleted manually. If the cleanup
 // interval is less than one, expired items are not deleted from the cache
