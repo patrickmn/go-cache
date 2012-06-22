@@ -28,7 +28,7 @@ func (i *Item) Expired() bool {
 
 type Cache struct {
 	*cache
-	// If this is confusing, see the comment at the bottom of the New() function
+	// If this is confusing, see the comment at the bottom of New()
 }
 
 type cache struct {
@@ -38,8 +38,9 @@ type cache struct {
 	janitor           *janitor
 }
 
-// Adds an item to the cache, replacing any existing item. If the duration is 0, the
-// cache's default expiration time is used. If it is -1, the item never expires.
+// Adds an item to the cache, replacing any existing item. If the duration is 0,
+// the cache's default expiration time is used. If it is -1, the item never
+// expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Lock()
 	c.set(k, x, d)
@@ -63,8 +64,8 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	}
 }
 
-// Adds an item to the cache only if an item doesn't already exist for the given key,
-// or if the existing item has expired. Returns an error if not.
+// Adds an item to the cache only if an item doesn't already exist for the given
+// key, or if the existing item has expired. Returns an error if not.
 func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
@@ -77,8 +78,8 @@ func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
-// Sets a new value for the cache item only if it already exists. Returns an error if
-// it does not.
+// Sets a new value for the cache item only if it already exists. Returns an
+// error if it does not.
 func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
@@ -91,8 +92,8 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
-// Gets an item from the cache. Returns the item or nil, and a bool indicating whether
-// the given key was found in the cache.
+// Gets an item from the cache. Returns the item or nil, and a bool indicating
+// whether the given key was found in the cache.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.Lock()
 	x, found := c.get(k)
@@ -112,10 +113,11 @@ func (c *cache) get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
-// Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-// uint32, uint64, float32 or float64 by n. Returns an error if the item's value is
-// not an integer, if it was not found, or if it is not possible to increment it by
-// n. Passing a negative number will cause the item to be decremented.
+// Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
+// uint8, uint32, uint64, float32 or float64 by n. Returns an error if the
+// item's value is not an integer, if it was not found, or if it is not
+// possible to increment it by n. Passing a negative number will cause the item
+// to be decremented.
 func (c *cache) IncrementFloat(k string, n float64) error {
 	c.mu.Lock()
 	v, found := c.Items[k]
@@ -160,23 +162,25 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 	return nil
 }
 
-// Increment an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-// uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
-// is not an integer, if it was not found, or if it is not possible to increment it
-// by n. Passing a negative number will cause the item to be decremented.
+// Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
+// uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
+// item's value is not an integer, if it was not found, or if it is not
+// possible to increment it by n. Passing a negative number will cause the item
+// to be decremented.
 func (c *cache) Increment(k string, n int64) error {
 	return c.IncrementFloat(k, float64(n))
 }
 
-// Decrement an item of type int, int8, int16, int32, int64, uintptr, uint, uint8,
-// uint32, or uint64, float32 or float64 by n. Returns an error if the item's value
-// is not an integer, if it was not found, or if it is not possible to decrement it
-// by n.
+// Decrement an item of type int, int8, int16, int32, int64, uintptr, uint,
+// uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
+// item's value is not an integer, if it was not found, or if it is not
+// possible to decrement it by n.
 func (c *cache) Decrement(k string, n int64) error {
 	return c.Increment(k, n*-1)
 }
 
-// Deletes an item from the cache. Does nothing if the item does not exist in the cache.
+// Deletes an item from the cache. Does nothing if the item does not exist in
+// the cache.
 func (c *cache) Delete(k string) {
 	c.mu.Lock()
 	c.delete(k)
