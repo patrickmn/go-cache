@@ -34,8 +34,6 @@ type Cache struct {
 type cache struct {
 	DefaultExpiration time.Duration
 	Items             map[string]*Item
-	// TODO: Calls to mu.Unlock are currently not deferred because defer
-	// adds ~200 ns (as of 792c7561af4b+ tip.)
 	mu                sync.Mutex
 	janitor           *janitor
 }
@@ -45,6 +43,8 @@ type cache struct {
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Lock()
 	c.set(k, x, d)
+	// TODO: Calls to mu.Unlock are currently not deferred because defer
+	// adds ~200 ns (as of go1.)
 	c.mu.Unlock()
 }
 
