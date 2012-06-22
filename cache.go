@@ -308,7 +308,7 @@ func New(de, ci time.Duration) *Cache {
 	// This trick ensures that the janitor goroutine (which--granted it was enabled--is
 	// running DeleteExpired on c forever) does not keep the returned C object from being
 	// garbage collected. When it is garbage collected, the finalizer stops the janitor
-	// goroutine, after which c is collected.
+	// goroutine, after which c can be collected.
 	C := &Cache{c}
 	if ci > 0 {
 		runtime.SetFinalizer(C, stopJanitor)
