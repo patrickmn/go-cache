@@ -3,6 +3,7 @@ package cache
 import (
 	"bytes"
 	"io/ioutil"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -642,22 +643,28 @@ func BenchmarkCacheGet(b *testing.B) {
 	}
 }
 
+func BenchmarkMutexMapGet(b *testing.B) {
+	m := map[string]string{
+		"foo": "bar",
+	}
+	mu := sync.Mutex{}
+	for i := 0; i < b.N; i++ {
+		mu.Lock()
+		_, _ = m["foo"]
+		mu.Unlock()
+	}
+}
+
 func BenchmarkCacheGetConcurrent(b *testing.B) {
 	tc := New(0, 0)
 	tc.Set("foo", "bar", 0)
 	wg := new(sync.WaitGroup)
-	children := b.N
-	iterations := 1
-
-	if children > 10000 {
-		children = 10000
-		iterations = b.N / children
-	}
-
-	wg.Add(children)
-	for i := 0; i < children; i++ {
+	workers := runtime.NumCPU()
+	each := b.N / workers
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
 		go func() {
-			for j := 0; j < iterations; j++ {
+			for j := 0; j < each; j++ {
 				tc.Get("foo")
 			}
 			wg.Done()
@@ -666,29 +673,27 @@ func BenchmarkCacheGetConcurrent(b *testing.B) {
 	wg.Wait()
 }
 
-func BenchmarkMapGet(b *testing.B) {
+func BenchmarkMutexMapGetConcurrent(b *testing.B) {
 	m := map[string]string{
 		"foo": "bar",
 	}
-	for i := 0; i < b.N; i++ {
-		_, _ = m["foo"]
+	mu := sync.Mutex{}
+	wg := new(sync.WaitGroup)
+	workers := runtime.NumCPU()
+	each := b.N / workers
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			for j := 0; j < each; j++ {
+				mu.Lock()
+				_, _ = m["foo"]
+				mu.Unlock()
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
-
-// func BenchmarkMapGetConcurrent(b *testing.B) {
-// 	m := map[string]string{
-// 		"foo": "bar",
-// 	}
-// 	wg := new(sync.WaitGroup)
-// 	wg.Add(b.N)
-// 	for i := 0; i < b.N; i++ {
-// 		go func() {
-// 			_, _ = m["foo"]
-// 			wg.Done()
-// 		}()
-// 	}
-// 	wg.Wait()
-// }
 
 func BenchmarkCacheSet(b *testing.B) {
 	tc := New(0, 0)
@@ -697,10 +702,13 @@ func BenchmarkCacheSet(b *testing.B) {
 	}
 }
 
-func BenchmarkMapSet(b *testing.B) {
+func BenchmarkMutexMapSet(b *testing.B) {
 	m := map[string]string{}
+	mu := sync.Mutex{}
 	for i := 0; i < b.N; i++ {
+		mu.Lock()
 		m["foo"] = "bar"
+		mu.Unlock()
 	}
 }
 
@@ -709,6 +717,19 @@ func BenchmarkCacheSetDelete(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		tc.Set("foo", "bar", 0)
 		tc.Delete("foo")
+	}
+}
+
+func BenchmarkMutexMapSetDelete(b *testing.B) {
+	m := map[string]string{}
+	mu := sync.Mutex{}
+	for i := 0; i < b.N; i++ {
+		mu.Lock()
+		m["foo"] = "bar"
+		mu.Unlock()
+		mu.Lock()
+		delete(m, "foo")
+		mu.Unlock()
 	}
 }
 
@@ -722,10 +743,13 @@ func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
 	tc.mu.Unlock()
 }
 
-func BenchmarkMapSetDelete(b *testing.B) {
+func BenchmarkMutexMapSetDeleteSingleLock(b *testing.B) {
 	m := map[string]string{}
+	mu := sync.Mutex{}
 	for i := 0; i < b.N; i++ {
+		mu.Lock()
 		m["foo"] = "bar"
 		delete(m, "foo")
+		mu.Unlock()
 	}
 }
