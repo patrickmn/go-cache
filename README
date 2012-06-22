@@ -92,11 +92,11 @@ foo.Println(foo.Num)
 == Reference
 
 func New(de, ci time.Duration) *Cache
-    Returns a new cache with a given default expiration duration and default
-    cleanup interval. If the expiration duration is less than 1, the items in
-    the cache never expire and must be deleted manually. If the cleanup interval
-    is less than one, expired items are not deleted from the cache before their
-    next lookup or before calling DeleteExpired.
+    Returns a new cache with a given default expiration duration and cleanup
+    interval. If the expiration duration is less than 1, the items in the cache
+    never expire (by default), and must be deleted manually. If the cleanup
+    interval is less than one, expired items are not deleted from the cache
+    before their next lookup or before calling DeleteExpired.
 
 func (c *Cache) Set(k string, x interface{}, d time.Duration)
     Adds an item to the cache, replacing any existing item. If the duration is 0,

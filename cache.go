@@ -284,11 +284,11 @@ func stopJanitor(c *Cache) {
 	c.janitor.Stop()
 }
 
-// Returns a new cache with a given default expiration duration and default cleanup
-// interval. If the expiration duration is less than 1, the items in the cache never
-// expire and must be deleted manually. If the cleanup interval is less than one,
-// expired items are not deleted from the cache before their next lookup or before
-// calling DeleteExpired.
+// Returns a new cache with a given default expiration duration and cleanup
+// interval. If the expiration duration is less than 1, the items in the cache
+// never expire (by default), and must be deleted manually. If the cleanup
+// interval is less than one, expired items are not deleted from the cache
+// before their next lookup or before calling DeleteExpired.
 func New(de, ci time.Duration) *Cache {
 	if de == 0 {
 		de = -1
@@ -305,10 +305,11 @@ func New(de, ci time.Duration) *Cache {
 		c.janitor = j
 		go j.Run(c)
 	}
-	// This trick ensures that the janitor goroutine (which--granted it was enabled--is
-	// running DeleteExpired on c forever) does not keep the returned C object from being
-	// garbage collected. When it is garbage collected, the finalizer stops the janitor
-	// goroutine, after which c can be collected.
+	// This trick ensures that the janitor goroutine (which--granted it
+	// was enabled--is running DeleteExpired on c forever) does not keep
+	// the returned C object from being garbage collected. When it is
+	// garbage collected, the finalizer stops the janitor goroutine, after
+	// which c can be collected.
 	C := &Cache{c}
 	if ci > 0 {
 		runtime.SetFinalizer(C, stopJanitor)
