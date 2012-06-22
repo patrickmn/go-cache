@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -636,18 +637,22 @@ func TestSerializeUnserializable(t *testing.T) {
 }
 
 func BenchmarkCacheGet(b *testing.B) {
+	b.StopTimer()
 	tc := New(0, 0)
 	tc.Set("foo", "bar", 0)
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tc.Get("foo")
 	}
 }
 
 func BenchmarkMutexMapGet(b *testing.B) {
+	b.StopTimer()
 	m := map[string]string{
 		"foo": "bar",
 	}
 	mu := sync.Mutex{}
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		mu.Lock()
 		_, _ = m["foo"]
@@ -656,12 +661,14 @@ func BenchmarkMutexMapGet(b *testing.B) {
 }
 
 func BenchmarkCacheGetConcurrent(b *testing.B) {
+	b.StopTimer()
 	tc := New(0, 0)
 	tc.Set("foo", "bar", 0)
 	wg := new(sync.WaitGroup)
 	workers := runtime.NumCPU()
 	each := b.N / workers
 	wg.Add(workers)
+	b.StartTimer()
 	for i := 0; i < workers; i++ {
 		go func() {
 			for j := 0; j < each; j++ {
@@ -674,6 +681,7 @@ func BenchmarkCacheGetConcurrent(b *testing.B) {
 }
 
 func BenchmarkMutexMapGetConcurrent(b *testing.B) {
+	b.StopTimer()
 	m := map[string]string{
 		"foo": "bar",
 	}
@@ -682,6 +690,7 @@ func BenchmarkMutexMapGetConcurrent(b *testing.B) {
 	workers := runtime.NumCPU()
 	each := b.N / workers
 	wg.Add(workers)
+	b.StartTimer()
 	for i := 0; i < workers; i++ {
 		go func() {
 			for j := 0; j < each; j++ {
@@ -695,16 +704,72 @@ func BenchmarkMutexMapGetConcurrent(b *testing.B) {
 	wg.Wait()
 }
 
-func BenchmarkCacheSet(b *testing.B) {
+func BenchmarkCacheGetManyConcurrent(b *testing.B) {
+	// This is the same as BenchmarkCacheGetConcurrent, but its result
+	// can be compared against BenchmarkShardedCacheGetManyConcurrent.
+	b.StopTimer()
+	n := 10000
 	tc := New(0, 0)
+	keys := make([]string, n)
+	for i := 0; i < n; i++ {
+		k := "foo" + strconv.Itoa(n)
+		keys[i] = k
+		tc.Set(k, "bar", 0)
+	}
+	each := b.N / n
+	wg := new(sync.WaitGroup)
+	wg.Add(n)
+	for _, v := range keys {
+		go func() {
+			for j := 0; j < each; j++ {
+				tc.Get(v)
+			}
+			wg.Done()
+		}()
+	}
+	b.StartTimer()
+	wg.Wait()
+}
+
+func BenchmarkShardedCacheGetManyConcurrent(b *testing.B) {
+	b.StopTimer()
+	n := 10000
+	tsc := NewSharded(20, 0, 0)
+	keys := make([]string, n)
+	for i := 0; i < n; i++ {
+		k := "foo" + strconv.Itoa(n)
+		keys[i] = k
+		tsc.Set(k, "bar", 0)
+	}
+	each := b.N / n
+	wg := new(sync.WaitGroup)
+	wg.Add(n)
+	for _, v := range keys {
+		go func() {
+			for j := 0; j < each; j++ {
+				tsc.Get(v)
+			}
+			wg.Done()
+		}()
+	}
+	b.StartTimer()
+	wg.Wait()
+}
+
+func BenchmarkCacheSet(b *testing.B) {
+	b.StopTimer()
+	tc := New(0, 0)
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tc.Set("foo", "bar", 0)
 	}
 }
 
 func BenchmarkMutexMapSet(b *testing.B) {
+	b.StopTimer()
 	m := map[string]string{}
 	mu := sync.Mutex{}
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		mu.Lock()
 		m["foo"] = "bar"
@@ -713,7 +778,9 @@ func BenchmarkMutexMapSet(b *testing.B) {
 }
 
 func BenchmarkCacheSetDelete(b *testing.B) {
+	b.StopTimer()
 	tc := New(0, 0)
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tc.Set("foo", "bar", 0)
 		tc.Delete("foo")
@@ -721,8 +788,10 @@ func BenchmarkCacheSetDelete(b *testing.B) {
 }
 
 func BenchmarkMutexMapSetDelete(b *testing.B) {
+	b.StopTimer()
 	m := map[string]string{}
 	mu := sync.Mutex{}
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		mu.Lock()
 		m["foo"] = "bar"
@@ -734,7 +803,9 @@ func BenchmarkMutexMapSetDelete(b *testing.B) {
 }
 
 func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
+	b.StopTimer()
 	tc := New(0, 0)
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tc.mu.Lock()
 		tc.set("foo", "bar", 0)
@@ -744,8 +815,10 @@ func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
 }
 
 func BenchmarkMutexMapSetDeleteSingleLock(b *testing.B) {
+	b.StopTimer()
 	m := map[string]string{}
 	mu := sync.Mutex{}
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		mu.Lock()
 		m["foo"] = "bar"
