@@ -333,43 +333,43 @@ type shardedCache struct {
 	janitor *shardedJanitor
 }
 
-func (sc *shardedCache) index(k string) uint32 {
+func (sc *shardedCache) bucket(k string) *cache {
 	h := fnv.New32()
 	h.Write([]byte(k))
 	n := binary.BigEndian.Uint32(h.Sum(nil))
-	return n % sc.m
+	return sc.cs[n % sc.m]
 }
 
 func (sc *shardedCache) Set(k string, x interface{}, d time.Duration) {
-	sc.cs[sc.index(k)].Set(k, x, d)
+	sc.bucket(k).Set(k, x, d)
 }
 
 func (sc *shardedCache) Add(k string, x interface{}, d time.Duration) error {
-	return sc.cs[sc.index(k)].Add(k, x, d)
+	return sc.bucket(k).Add(k, x, d)
 }
 
 func (sc *shardedCache) Replace(k string, x interface{}, d time.Duration) error {
-	return sc.cs[sc.index(k)].Replace(k, x, d)
+	return sc.bucket(k).Replace(k, x, d)
 }
 
 func (sc *shardedCache) Get(k string) (interface{}, bool) {
-	return sc.cs[sc.index(k)].Get(k)
+	return sc.bucket(k).Get(k)
 }
 
 func (sc *shardedCache) Increment(k string, n int64) error {
-	return sc.cs[sc.index(k)].Increment(k, n)
+	return sc.bucket(k).Increment(k, n)
 }
 
 func (sc *shardedCache) IncrementFloat(k string, n float64) error {
-	return sc.cs[sc.index(k)].IncrementFloat(k, n)
+	return sc.bucket(k).IncrementFloat(k, n)
 }
 
 func (sc *shardedCache) Decrement(k string, n int64) error {
-	return sc.cs[sc.index(k)].Decrement(k, n)
+	return sc.bucket(k).Decrement(k, n)
 }
 
 func (sc *shardedCache) Delete(k string) {
-	sc.cs[sc.index(k)].Delete(k)
+	sc.bucket(k).Delete(k)
 }
 
 func (sc *shardedCache) DeleteExpired() {
