@@ -646,10 +646,20 @@ func BenchmarkCacheGetConcurrent(b *testing.B) {
 	tc := New(0, 0)
 	tc.Set("foo", "bar", 0)
 	wg := new(sync.WaitGroup)
-	wg.Add(b.N)
-	for i := 0; i < b.N; i++ {
+	children := b.N
+	iterations := 1
+
+	if children > 10000 {
+		children = 10000
+		iterations = b.N / children
+	}
+
+	wg.Add(children)
+	for i := 0; i < children; i++ {
 		go func() {
-			tc.Get("foo")
+			for j := 0; j < iterations; j++ {
+				tc.Get("foo")
+			}
 			wg.Done()
 		}()
 	}
