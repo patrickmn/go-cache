@@ -13,13 +13,30 @@ import (
 	"time"
 )
 
-type Item struct {
+type Interface interface {
+	Set(string, interface{}, time.Duration)
+	Add(string, interface{}, time.Duration) error
+	Replace(string, interface{}, time.Duration) error
+	Get(string) (interface{}, bool)
+	Increment(string, int64) error
+	IncrementFloat(string, float64) error
+	Decrement(string, int64) error
+	Delete(string)
+	DeleteExpired()
+	Flush()
+	Save(io.Writer) error
+	SaveFile(string) error
+	Load(io.Reader) error
+	LoadFile(io.Reader) error
+}
+
+type item struct {
 	Object     interface{}
 	Expiration *time.Time
 }
 
 // Returns true if the item has expired.
-func (i *Item) Expired() bool {
+func (i *item) Expired() bool {
 	if i.Expiration == nil {
 		return false
 	}
@@ -32,9 +49,9 @@ type Cache struct {
 }
 
 type cache struct {
-	DefaultExpiration time.Duration
-	Items             map[string]*Item
-	mu                sync.Mutex
+	sync.Mutex
+	defaultExpiration time.Duration
+	items             map[string]*item
 	janitor           *janitor
 }
 
@@ -42,23 +59,23 @@ type cache struct {
 // the cache's default expiration time is used. If it is -1, the item never
 // expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
-	c.mu.Lock()
+	c.Lock()
 	c.set(k, x, d)
 	// TODO: Calls to mu.Unlock are currently not deferred because defer
 	// adds ~200 ns (as of go1.)
-	c.mu.Unlock()
+	c.Unlock()
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
 	var e *time.Time
 	if d == 0 {
-		d = c.DefaultExpiration
+		d = c.defaultExpiration
 	}
 	if d > 0 {
 		t := time.Now().Add(d)
 		e = &t
 	}
-	c.Items[k] = &Item{
+	c.items[k] = &item{
 		Object:     x,
 		Expiration: e,
 	}
@@ -67,42 +84,42 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
 func (c *cache) Add(k string, x interface{}, d time.Duration) error {
-	c.mu.Lock()
+	c.Lock()
 	_, found := c.get(k)
 	if found {
-		c.mu.Unlock()
-		return fmt.Errorf("Item %s already exists", k)
+		c.Unlock()
+		return fmt.Errorf("item %s already exists", k)
 	}
 	c.set(k, x, d)
-	c.mu.Unlock()
+	c.Unlock()
 	return nil
 }
 
 // Set a new value for the cache key only if it already exists. Returns an
 // error if it does not.
 func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
-	c.mu.Lock()
+	c.Lock()
 	_, found := c.get(k)
 	if !found {
-		c.mu.Unlock()
-		return fmt.Errorf("Item %s doesn't exist", k)
+		c.Unlock()
+		return fmt.Errorf("item %s doesn't exist", k)
 	}
 	c.set(k, x, d)
-	c.mu.Unlock()
+	c.Unlock()
 	return nil
 }
 
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
-	c.mu.Lock()
+	c.Lock()
 	x, found := c.get(k)
-	c.mu.Unlock()
+	c.Unlock()
 	return x, found
 }
 
 func (c *cache) get(k string) (interface{}, bool) {
-	item, found := c.Items[k]
+	item, found := c.items[k]
 	if !found {
 		return nil, false
 	}
@@ -119,17 +136,17 @@ func (c *cache) get(k string) (interface{}, bool) {
 // possible to increment it by n. Passing a negative number will cause the item
 // to be decremented.
 func (c *cache) IncrementFloat(k string, n float64) error {
-	c.mu.Lock()
-	v, found := c.Items[k]
+	c.Lock()
+	v, found := c.items[k]
 	if !found || v.Expired() {
-		c.mu.Unlock()
-		return fmt.Errorf("Item not found")
+		c.Unlock()
+		return fmt.Errorf("item not found")
 	}
 
 	t := reflect.TypeOf(v.Object)
 	switch t.Kind() {
 	default:
-		c.mu.Unlock()
+		c.Unlock()
 		return fmt.Errorf("The value of %s is not an integer", k)
 	case reflect.Uint:
 		v.Object = v.Object.(uint) + uint(n)
@@ -158,7 +175,7 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 	case reflect.Float64:
 		v.Object = v.Object.(float64) + n
 	}
-	c.mu.Unlock()
+	c.Unlock()
 	return nil
 }
 
@@ -181,24 +198,24 @@ func (c *cache) Decrement(k string, n int64) error {
 
 // Delete an item from the cache. Does nothing if the key is not in the cache.
 func (c *cache) Delete(k string) {
-	c.mu.Lock()
+	c.Lock()
 	c.delete(k)
-	c.mu.Unlock()
+	c.Unlock()
 }
 
 func (c *cache) delete(k string) {
-	delete(c.Items, k)
+	delete(c.items, k)
 }
 
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
-	c.mu.Lock()
-	for k, v := range c.Items {
+	c.Lock()
+	for k, v := range c.items {
 		if v.Expired() {
 			c.delete(k)
 		}
 	}
-	c.mu.Unlock()
+	c.Unlock()
 }
 
 // Write the cache's items (using Gob) to an io.Writer.
@@ -210,10 +227,10 @@ func (c *cache) Save(w io.Writer) (err error) {
 			err = fmt.Errorf("Error registering item types with Gob library")
 		}
 	}()
-	for _, v := range c.Items {
+	for _, v := range c.items {
 		gob.Register(v.Object)
 	}
-	err = enc.Encode(&c.Items)
+	err = enc.Encode(&c.items)
 	return
 }
 
@@ -231,13 +248,13 @@ func (c *cache) SaveFile(fname string) error {
 // keys that already exist in the current cache.
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
-	items := map[string]*Item{}
+	items := map[string]*item{}
 	err := dec.Decode(&items)
 	if err == nil {
 		for k, v := range items {
-			_, found := c.Items[k]
+			_, found := c.items[k]
 			if !found {
-				c.Items[k] = v
+				c.items[k] = v
 			}
 		}
 	}
@@ -256,9 +273,9 @@ func (c *cache) LoadFile(fname string) error {
 
 // Delete all items from the cache.
 func (c *cache) Flush() {
-	c.mu.Lock()
-	c.Items = map[string]*Item{}
-	c.mu.Unlock()
+	c.Lock()
+	c.items = map[string]*item{}
+	c.Unlock()
 }
 
 type janitor struct {
@@ -296,9 +313,8 @@ func newCache(de time.Duration) *cache {
 		de = -1
 	}
 	c := &cache{
-		DefaultExpiration: de,
-		Items:             map[string]*Item{},
-		mu:                sync.Mutex{},
+		defaultExpiration: de,
+		items:             map[string]*item{},
 	}
 	return c
 }
@@ -337,7 +353,7 @@ func (sc *shardedCache) bucket(k string) *cache {
 	h := fnv.New32()
 	h.Write([]byte(k))
 	n := binary.BigEndian.Uint32(h.Sum(nil))
-	return sc.cs[n % sc.m]
+	return sc.cs[n%sc.m]
 }
 
 func (sc *shardedCache) Set(k string, x interface{}, d time.Duration) {
@@ -421,9 +437,8 @@ func newShardedCache(n int, de time.Duration) *shardedCache {
 	}
 	for i := 0; i < n; i++ {
 		c := &cache{
-			DefaultExpiration: de,
-			Items:             map[string]*Item{},
-			mu:                sync.Mutex{},
+			defaultExpiration: de,
+			items:             map[string]*item{},
 		}
 		sc.cs[i] = c
 	}
