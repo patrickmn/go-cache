@@ -734,7 +734,7 @@ func BenchmarkCacheGetManyConcurrent(b *testing.B) {
 func BenchmarkShardedCacheGetManyConcurrent(b *testing.B) {
 	b.StopTimer()
 	n := 10000
-	tsc := NewSharded(20, 0, 0)
+	tsc := unexportedNewSharded(20, 0, 0)
 	keys := make([]string, n)
 	for i := 0; i < n; i++ {
 		k := "foo" + strconv.Itoa(n)

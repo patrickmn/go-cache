@@ -7,7 +7,6 @@ import (
 	"hash/fnv"
 	"io"
 	"os"
-	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -142,38 +141,36 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 		c.Unlock()
 		return fmt.Errorf("item not found")
 	}
-
-	t := reflect.TypeOf(v.Object)
-	switch t.Kind() {
+	switch v.Object.(type) {
+	case int:
+		v.Object = v.Object.(int) + int(n)
+	case int8:
+		v.Object = v.Object.(int8) + int8(n)
+	case int16:
+		v.Object = v.Object.(int16) + int16(n)
+	case int32:
+		v.Object = v.Object.(int32) + int32(n)
+	case int64:
+		v.Object = v.Object.(int64) + int64(n)
+	case uint:
+		v.Object = v.Object.(uint) + uint(n)
+	case uintptr:
+		v.Object = v.Object.(uintptr) + uintptr(n)
+	case uint8:
+		v.Object = v.Object.(uint8) + uint8(n)
+	case uint16:
+		v.Object = v.Object.(uint16) + uint16(n)
+	case uint32:
+		v.Object = v.Object.(uint32) + uint32(n)
+	case uint64:
+		v.Object = v.Object.(uint64) + uint64(n)
+	case float32:
+		v.Object = v.Object.(float32) + float32(n)
+	case float64:
+		v.Object = v.Object.(float64) + n
 	default:
 		c.Unlock()
 		return fmt.Errorf("The value of %s is not an integer", k)
-	case reflect.Uint:
-		v.Object = v.Object.(uint) + uint(n)
-	case reflect.Uintptr:
-		v.Object = v.Object.(uintptr) + uintptr(n)
-	case reflect.Uint8:
-		v.Object = v.Object.(uint8) + uint8(n)
-	case reflect.Uint16:
-		v.Object = v.Object.(uint16) + uint16(n)
-	case reflect.Uint32:
-		v.Object = v.Object.(uint32) + uint32(n)
-	case reflect.Uint64:
-		v.Object = v.Object.(uint64) + uint64(n)
-	case reflect.Int:
-		v.Object = v.Object.(int) + int(n)
-	case reflect.Int8:
-		v.Object = v.Object.(int8) + int8(n)
-	case reflect.Int16:
-		v.Object = v.Object.(int16) + int16(n)
-	case reflect.Int32:
-		v.Object = v.Object.(int32) + int32(n)
-	case reflect.Int64:
-		v.Object = v.Object.(int64) + int64(n)
-	case reflect.Float32:
-		v.Object = v.Object.(float32) + float32(n)
-	case reflect.Float64:
-		v.Object = v.Object.(float64) + n
 	}
 	c.Unlock()
 	return nil
