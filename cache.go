@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-type Interface interface {
+type unexportedInterface interface {
 	Set(string, interface{}, time.Duration)
 	Add(string, interface{}, time.Duration) error
 	Replace(string, interface{}, time.Duration) error
@@ -339,7 +339,7 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 	return C
 }
 
-type ShardedCache struct {
+type unexportedShardedCache struct {
 	*shardedCache
 }
 
@@ -418,7 +418,7 @@ func (j *shardedJanitor) Run(sc *shardedCache) {
 	}
 }
 
-func stopShardedJanitor(sc *ShardedCache) {
+func stopShardedJanitor(sc *unexportedShardedCache) {
 	sc.janitor.stop <- true
 }
 
@@ -445,12 +445,12 @@ func newShardedCache(n int, de time.Duration) *shardedCache {
 	return sc
 }
 
-func NewSharded(shards int, defaultExpiration, cleanupInterval time.Duration) *ShardedCache {
+func unexportedNewSharded(shards int, defaultExpiration, cleanupInterval time.Duration) *unexportedShardedCache {
 	if defaultExpiration == 0 {
 		defaultExpiration = -1
 	}
 	sc := newShardedCache(shards, defaultExpiration)
-	SC := &ShardedCache{sc}
+	SC := &unexportedShardedCache{sc}
 	if cleanupInterval > 0 {
 		runShardedJanitor(sc, cleanupInterval)
 		runtime.SetFinalizer(SC, stopShardedJanitor)
