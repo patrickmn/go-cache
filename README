@@ -119,15 +119,13 @@ func (c *Cache) Increment(k string, n int64) error
     Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
     uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
     item's value is not an integer, if it was not found, or if it is not
-    possible to increment it by n. Passing a negative number will cause the item
-    to be decremented.
+    possible to increment it by n.
 
 func (c *Cache) IncrementFloat(k string, n float64) error
-    Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
-    uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
-    item's value is not an integer, if it was not found, or if it is not
-    possible to increment it by n. Passing a negative number will cause the item
-    to be decremented.
+    Increment an item of type float32 or float64 by n. Returns an error if the
+    item's value is not floating point, if it was not found, or if it is not
+    possible to increment it by n. Pass a negative number to decrement the
+    value.
 
 func (c *Cache) Decrement(k string, n int64) error
     Decrement an item of type int, int8, int16, int32, int64, uintptr, uint,
