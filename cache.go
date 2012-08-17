@@ -129,12 +129,35 @@ func (c *cache) get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
-// Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
-// uint8, uint32, uint64, float32 or float64 by n. Returns an error if the
-// item's value is not an integer, if it was not found, or if it is not
-// possible to increment it by n. Passing a negative number will cause the item
-// to be decremented.
+// Increment an item of type float32 or float64 by n. Returns an error if the
+// item's value is not floating point, if it was not found, or if it is not
+// possible to increment it by n. Pass a negative number to decrement the
+// value.
 func (c *cache) IncrementFloat(k string, n float64) error {
+	c.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.Unlock()
+		return fmt.Errorf("item not found")
+	}
+	switch v.Object.(type) {
+	case float32:
+		v.Object = v.Object.(float32) + float32(n)
+	case float64:
+		v.Object = v.Object.(float64) + n
+	default:
+		c.Unlock()
+		return fmt.Errorf("The value for %s does not have type float32 or float64", k)
+	}
+	c.Unlock()
+	return nil
+}
+
+// Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
+// uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
+// item's value is not an integer, if it was not found, or if it is not
+// possible to increment it by n.
+func (c *cache) Increment(k string, n int64) error {
 	c.Lock()
 	v, found := c.items[k]
 	if !found || v.Expired() {
@@ -151,7 +174,7 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 	case int32:
 		v.Object = v.Object.(int32) + int32(n)
 	case int64:
-		v.Object = v.Object.(int64) + int64(n)
+		v.Object = v.Object.(int64) + n
 	case uint:
 		v.Object = v.Object.(uint) + uint(n)
 	case uintptr:
@@ -167,22 +190,13 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 	case float32:
 		v.Object = v.Object.(float32) + float32(n)
 	case float64:
-		v.Object = v.Object.(float64) + n
+		v.Object = v.Object.(float64) + float64(n)
 	default:
 		c.Unlock()
-		return fmt.Errorf("The value of %s is not an integer", k)
+		return fmt.Errorf("The value for %s is not an integer", k)
 	}
 	c.Unlock()
 	return nil
-}
-
-// Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
-// uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
-// item's value is not an integer, if it was not found, or if it is not
-// possible to increment it by n. Passing a negative number will cause the item
-// to be decremented.
-func (c *cache) Increment(k string, n int64) error {
-	return c.IncrementFloat(k, float64(n))
 }
 
 // Decrement an item of type int, int8, int16, int32, int64, uintptr, uint,
@@ -190,7 +204,47 @@ func (c *cache) Increment(k string, n int64) error {
 // item's value is not an integer, if it was not found, or if it is not
 // possible to decrement it by n.
 func (c *cache) Decrement(k string, n int64) error {
-	return c.Increment(k, n*-1)
+	// TODO: Implement Increment and Decrement more cleanly.
+	// (Cannot do Increment(k, n*-1) for uints.)
+	c.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.Unlock()
+		return fmt.Errorf("item not found")
+	}
+	switch v.Object.(type) {
+	case int:
+		v.Object = v.Object.(int) - int(n)
+	case int8:
+		v.Object = v.Object.(int8) - int8(n)
+	case int16:
+		v.Object = v.Object.(int16) - int16(n)
+	case int32:
+		v.Object = v.Object.(int32) - int32(n)
+	case int64:
+		v.Object = v.Object.(int64) - n
+	case uint:
+		v.Object = v.Object.(uint) - uint(n)
+	case uintptr:
+		v.Object = v.Object.(uintptr) - uintptr(n)
+	case uint8:
+		v.Object = v.Object.(uint8) - uint8(n)
+	case uint16:
+		v.Object = v.Object.(uint16) - uint16(n)
+	case uint32:
+		v.Object = v.Object.(uint32) - uint32(n)
+	case uint64:
+		v.Object = v.Object.(uint64) - uint64(n)
+	case float32:
+		v.Object = v.Object.(float32) - float32(n)
+	case float64:
+		v.Object = v.Object.(float64) - float64(n)
+	default:
+		c.Unlock()
+		return fmt.Errorf("The value for %s is not an integer", k)
+	}
+	c.Unlock()
+	return nil
 }
 
 // Delete an item from the cache. Does nothing if the key is not in the cache.
