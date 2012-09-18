@@ -292,7 +292,12 @@ func (c *cache) SaveFile(fname string) error {
 	if err != nil {
 		return err
 	}
-	return c.Save(fp)
+	err = c.Save(fp)
+	if err != nil {
+		fp.Close()
+		return err
+	}
+	return fp.Close()
 }
 
 // Add (Gob-serialized) cache items from an io.Reader, excluding any items with
@@ -319,7 +324,12 @@ func (c *cache) LoadFile(fname string) error {
 	if err != nil {
 		return err
 	}
-	return c.Load(fp)
+	err = c.Load(fp)
+	if err != nil {
+		fp.Close()
+		return err
+	}
+	return fp.Close()
 }
 
 // Delete all items from the cache.
