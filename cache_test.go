@@ -1122,6 +1122,16 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestItemCount(t *testing.T) {
+	tc := New(0, 0)
+	tc.Set("foo", "1", 0)
+	tc.Set("bar", "2", 0)
+	tc.Set("baz", "3", 0)
+	if n := tc.ItemCount(); n != 3 {
+		t.Errorf("Item count is not 3: %d", n)
+	}
+}
+
 func TestFlush(t *testing.T) {
 	tc := New(0, 0)
 	tc.Set("foo", "bar", 0)

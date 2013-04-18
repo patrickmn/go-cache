@@ -49,6 +49,7 @@ type unexportedInterface interface {
 	DecrementFloat64(string, float64) (float64, error)
 	Delete(string)
 	DeleteExpired()
+	ItemCount() int
 	Flush()
 	Save(io.Writer) error
 	SaveFile(string) error
@@ -931,6 +932,15 @@ func (c *cache) LoadFile(fname string) error {
 		return err
 	}
 	return fp.Close()
+}
+
+// Returns the number of items in the cache. This may include items that have
+// expired, but have not yet been cleaned up.
+func (c *cache) ItemCount() int {
+	c.Lock()
+	n := len(c.items)
+	c.Unlock()
+	return n
 }
 
 // Delete all items from the cache.
