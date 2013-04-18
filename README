@@ -178,6 +178,10 @@ func (c *Cache) Delete(k string)
 func (c *Cache) DeleteExpired()
     Delete all expired items from the cache.
 
+func (c *Cache) ItemCount()
+    Returns the number of items in the cache. This may include items that have
+    expired, but have not yet been cleaned up.
+
 func (c *Cache) Flush()
     Delete all items from the cache.
 
