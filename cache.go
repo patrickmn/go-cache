@@ -76,7 +76,7 @@ type Cache struct {
 }
 
 type cache struct {
-	sync.Mutex
+	sync.RWMutex
 	defaultExpiration time.Duration
 	items             map[string]*item
 	janitor           *janitor
@@ -139,9 +139,9 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
-	c.Lock()
+	c.RLock()
 	x, found := c.get(k)
-	c.Unlock()
+	c.RUnlock()
 	return x, found
 }
 
@@ -937,9 +937,9 @@ func (c *cache) LoadFile(fname string) error {
 // Returns the number of items in the cache. This may include items that have
 // expired, but have not yet been cleaned up.
 func (c *cache) ItemCount() int {
-	c.Lock()
+	c.RLock()
 	n := len(c.items)
-	c.Unlock()
+	c.RUnlock()
 	return n
 }
 
