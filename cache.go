@@ -871,7 +871,7 @@ func (c *cache) DeleteExpired() {
 	c.Unlock()
 }
 
-// Write the cache's items (using Gob) to an io.Writer.
+// Write cache items (using Gob) to an io.Writer.
 func (c *cache) Save(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
 
@@ -880,10 +880,20 @@ func (c *cache) Save(w io.Writer) (err error) {
 			err = fmt.Errorf("Error registering item types with Gob library")
 		}
 	}()
-	for _, v := range c.items {
+
+	// copy out the cache items to a temporary array
+	// so that we don't have to hold a lock while we do I/O
+	var objects map[string]*item
+	c.Lock()
+	for k, v := range c.items {
+		objects[k] = v
+	}
+	c.Unlock()
+
+	for _, v := range objects {
 		gob.Register(v.Object)
 	}
-	err = enc.Encode(&c.items)
+	err = enc.Encode(&objects)
 	return
 }
 
@@ -909,12 +919,14 @@ func (c *cache) Load(r io.Reader) error {
 	items := map[string]*item{}
 	err := dec.Decode(&items)
 	if err == nil {
+		c.Lock()
 		for k, v := range items {
 			_, found := c.items[k]
 			if !found {
 				c.items[k] = v
 			}
 		}
+		c.Unlock()
 	}
 	return err
 }
