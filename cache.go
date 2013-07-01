@@ -876,9 +876,10 @@ func (c *cache) Save(w io.Writer) (err error) {
 		}
 	}()
 	c.RLock()
-	items := c.items
-	for _, v := range items {
+	items := make(map[string]*item, len(c.items))
+	for k, v := range c.items {
 		gob.Register(v.Object)
+		items[k] = v
 	}
 	c.RUnlock()
 	err = enc.Encode(&items)
