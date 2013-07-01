@@ -1389,12 +1389,12 @@ func BenchmarkMutexMapGet(b *testing.B) {
 	m := map[string]string{
 		"foo": "bar",
 	}
-	mu := sync.Mutex{}
+	mu := sync.RWMutex{}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		mu.Lock()
+		mu.RLock()
 		_, _ = m["foo"]
-		mu.Unlock()
+		mu.RUnlock()
 	}
 }
 
@@ -1423,7 +1423,7 @@ func BenchmarkMutexMapGetConcurrent(b *testing.B) {
 	m := map[string]string{
 		"foo": "bar",
 	}
-	mu := sync.Mutex{}
+	mu := sync.RWMutex{}
 	wg := new(sync.WaitGroup)
 	workers := runtime.NumCPU()
 	each := b.N / workers
@@ -1432,9 +1432,9 @@ func BenchmarkMutexMapGetConcurrent(b *testing.B) {
 	for i := 0; i < workers; i++ {
 		go func() {
 			for j := 0; j < each; j++ {
-				mu.Lock()
+				mu.RLock()
 				_, _ = m["foo"]
-				mu.Unlock()
+				mu.RUnlock()
 			}
 			wg.Done()
 		}()
