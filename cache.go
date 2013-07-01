@@ -76,7 +76,7 @@ type Cache struct {
 }
 
 type cache struct {
-	sync.Mutex
+	sync.RWMutex
 	defaultExpiration time.Duration
 	items             map[string]*item
 	janitor           *janitor
@@ -122,8 +122,8 @@ func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
-// Set a new value for the cache key only if it already exists. Returns an
-// error if it does not.
+// Set a new value for the cache key only if it already exists, and the existing
+// item hasn't expired. Returns an error otherwise.
 func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	c.Lock()
 	_, found := c.get(k)
@@ -139,19 +139,15 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
-	c.Lock()
+	c.RLock()
 	x, found := c.get(k)
-	c.Unlock()
+	c.RUnlock()
 	return x, found
 }
 
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
-	if !found {
-		return nil, false
-	}
-	if item.Expired() {
-		c.delete(k)
+	if !found || item.Expired() {
 		return nil, false
 	}
 	return item.Object, true
@@ -874,12 +870,13 @@ func (c *cache) DeleteExpired() {
 // Write the cache's items (using Gob) to an io.Writer.
 func (c *cache) Save(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
-
 	defer func() {
 		if x := recover(); x != nil {
 			err = fmt.Errorf("Error registering item types with Gob library")
 		}
 	}()
+	c.RLock()
+	defer c.RUnlock()
 	for _, v := range c.items {
 		gob.Register(v.Object)
 	}
@@ -903,15 +900,17 @@ func (c *cache) SaveFile(fname string) error {
 }
 
 // Add (Gob-serialized) cache items from an io.Reader, excluding any items with
-// keys that already exist in the current cache.
+// keys that already exist (and haven't expired) in the current cache.
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
 	items := map[string]*item{}
 	err := dec.Decode(&items)
 	if err == nil {
+		c.Lock()
+		defer c.Unlock()
 		for k, v := range items {
-			_, found := c.items[k]
-			if !found {
+			ov, found := c.items[k]
+			if !found || ov.Expired() {
 				c.items[k] = v
 			}
 		}
@@ -937,9 +936,9 @@ func (c *cache) LoadFile(fname string) error {
 // Returns the number of items in the cache. This may include items that have
 // expired, but have not yet been cleaned up.
 func (c *cache) ItemCount() int {
-	c.Lock()
+	c.RLock()
 	n := len(c.items)
-	c.Unlock()
+	c.RUnlock()
 	return n
 }
 
@@ -995,7 +994,7 @@ func newCache(de time.Duration) *cache {
 // interval. If the expiration duration is less than 1, the items in the cache
 // never expire (by default), and must be deleted manually. If the cleanup
 // interval is less than one, expired items are not deleted from the cache
-// before their next lookup or before calling DeleteExpired.
+// before calling DeleteExpired.
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 	c := newCache(defaultExpiration)
 	// This trick ensures that the janitor goroutine (which--granted it
