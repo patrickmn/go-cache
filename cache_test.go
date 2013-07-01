@@ -1384,7 +1384,7 @@ func BenchmarkCacheGet(b *testing.B) {
 	}
 }
 
-func BenchmarkMutexMapGet(b *testing.B) {
+func BenchmarkRWMutexMapGet(b *testing.B) {
 	b.StopTimer()
 	m := map[string]string{
 		"foo": "bar",
@@ -1418,7 +1418,7 @@ func BenchmarkCacheGetConcurrent(b *testing.B) {
 	wg.Wait()
 }
 
-func BenchmarkMutexMapGetConcurrent(b *testing.B) {
+func BenchmarkRWMutexMapGetConcurrent(b *testing.B) {
 	b.StopTimer()
 	m := map[string]string{
 		"foo": "bar",
@@ -1503,10 +1503,10 @@ func BenchmarkCacheSet(b *testing.B) {
 	}
 }
 
-func BenchmarkMutexMapSet(b *testing.B) {
+func BenchmarkRWMutexMapSet(b *testing.B) {
 	b.StopTimer()
 	m := map[string]string{}
-	mu := sync.Mutex{}
+	mu := sync.RWMutex{}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		mu.Lock()
@@ -1525,10 +1525,10 @@ func BenchmarkCacheSetDelete(b *testing.B) {
 	}
 }
 
-func BenchmarkMutexMapSetDelete(b *testing.B) {
+func BenchmarkRWMutexMapSetDelete(b *testing.B) {
 	b.StopTimer()
 	m := map[string]string{}
-	mu := sync.Mutex{}
+	mu := sync.RWMutex{}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		mu.Lock()
@@ -1552,10 +1552,10 @@ func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
 	}
 }
 
-func BenchmarkMutexMapSetDeleteSingleLock(b *testing.B) {
+func BenchmarkRWMutexMapSetDeleteSingleLock(b *testing.B) {
 	b.StopTimer()
 	m := map[string]string{}
-	mu := sync.Mutex{}
+	mu := sync.RWMutex{}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		mu.Lock()
