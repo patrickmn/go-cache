@@ -49,6 +49,7 @@ type unexportedInterface interface {
 	DecrementFloat64(string, float64) (float64, error)
 	Delete(string)
 	DeleteExpired()
+	Items() map[string]*Item
 	ItemCount() int
 	Flush()
 	Save(io.Writer) error
@@ -57,17 +58,17 @@ type unexportedInterface interface {
 	LoadFile(io.Reader) error
 }
 
-type item struct {
+type Item struct {
 	Object     interface{}
 	Expiration *time.Time
 }
 
 // Returns true if the item has expired.
-func (i *item) Expired() bool {
-	if i.Expiration == nil {
+func (item *Item) Expired() bool {
+	if item.Expiration == nil {
 		return false
 	}
-	return i.Expiration.Before(time.Now())
+	return item.Expiration.Before(time.Now())
 }
 
 type Cache struct {
@@ -78,7 +79,7 @@ type Cache struct {
 type cache struct {
 	sync.RWMutex
 	defaultExpiration time.Duration
-	items             map[string]*item
+	items             map[string]*Item
 	janitor           *janitor
 }
 
@@ -102,7 +103,7 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 		t := time.Now().Add(d)
 		e = &t
 	}
-	c.items[k] = &item{
+	c.items[k] = &Item{
 		Object:     x,
 		Expiration: e,
 	}
@@ -903,7 +904,7 @@ func (c *cache) SaveFile(fname string) error {
 // keys that already exist (and haven't expired) in the current cache.
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
-	items := map[string]*item{}
+	items := map[string]*Item{}
 	err := dec.Decode(&items)
 	if err == nil {
 		c.Lock()
@@ -933,8 +934,17 @@ func (c *cache) LoadFile(fname string) error {
 	return fp.Close()
 }
 
+// Returns the items in the cache. This may include items that have expired,
+// but have not yet been cleaned up. If this is significant, the Expiration
+// field of the items should be checked.
+func (c *cache) Items() map[string]*Item {
+	c.RLock()
+	defer c.RUnlock()
+	return c.items
+}
+
 // Returns the number of items in the cache. This may include items that have
-// expired, but have not yet been cleaned up.
+// expired, but have not yet been cleaned up. Equivalent to len(c.Items).
 func (c *cache) ItemCount() int {
 	c.RLock()
 	n := len(c.items)
@@ -945,7 +955,7 @@ func (c *cache) ItemCount() int {
 // Delete all items from the cache.
 func (c *cache) Flush() {
 	c.Lock()
-	c.items = map[string]*item{}
+	c.items = map[string]*Item{}
 	c.Unlock()
 }
 
@@ -985,7 +995,7 @@ func newCache(de time.Duration) *cache {
 	}
 	c := &cache{
 		defaultExpiration: de,
-		items:             map[string]*item{},
+		items:             map[string]*Item{},
 	}
 	return c
 }
@@ -1109,7 +1119,7 @@ func newShardedCache(n int, de time.Duration) *shardedCache {
 	for i := 0; i < n; i++ {
 		c := &cache{
 			defaultExpiration: de,
-			items:             map[string]*item{},
+			items:             map[string]*Item{},
 		}
 		sc.cs[i] = c
 	}
