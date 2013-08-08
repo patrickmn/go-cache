@@ -944,7 +944,7 @@ func (c *cache) Items() map[string]*Item {
 }
 
 // Returns the number of items in the cache. This may include items that have
-// expired, but have not yet been cleaned up. Equivalent to len(c.Items).
+// expired, but have not yet been cleaned up. Equivalent to len(c.Items()).
 func (c *cache) ItemCount() int {
 	c.RLock()
 	n := len(c.items)
