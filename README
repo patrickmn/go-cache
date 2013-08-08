@@ -91,4 +91,4 @@ foo.Println(foo.Num)
 
 == Reference
 
-http://godoc.org/github.com/pmylund/go-cache
+`go doc` or http://godoc.org/github.com/pmylund/go-cache
