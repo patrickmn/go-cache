@@ -936,7 +936,7 @@ func (c *cache) LoadFile(fname string) error {
 
 // Returns the items in the cache. This may include items that have expired,
 // but have not yet been cleaned up. If this is significant, the Expiration
-// field of the items should be checked.
+// fields of the items should be checked.
 func (c *cache) Items() map[string]*Item {
 	c.RLock()
 	defer c.RUnlock()
