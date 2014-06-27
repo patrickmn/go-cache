@@ -113,6 +113,10 @@ func (item *Item) addItem(res *Item) {
 	if res == nil {
 		return
 	}
+	if item == nil {
+		item = res
+		return
+	}
 	if item.Object == nil {
 		item.copy(res)
 		return
