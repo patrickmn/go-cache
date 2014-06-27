@@ -1246,7 +1246,6 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 	if a.(string) != "a" {
 		t.Error("a is not a")
 	}
-
 	b, found := oc.Get("b")
 	if !found {
 		t.Error("b was not found")
