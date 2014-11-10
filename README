@@ -23,12 +23,12 @@ import "github.com/pmylund/go-cache"
 c := cache.New(5*time.Minute, 30*time.Second)
 
 // Set the value of the key "foo" to "bar", with the default expiration time
-c.Set("foo", "bar", 0)
+c.Set("foo", "bar", cache.DefaultExpiration)
 
 // Set the value of the key "baz" to 42, with no expiration time
 // (the item won't be removed until it is re-set, or removed using
 // c.Delete("baz")
-c.Set("baz", 42, -1)
+c.Set("baz", 42, cache.NoExpiration)
 
 // Get the string associated with the key "foo" from the cache
 foo, found := c.Get("foo")
@@ -61,7 +61,7 @@ if x, found := c.Get("foo"); found {
 // foo can then be passed around freely as a string
 
 // Want performance? Store pointers!
-c.Set("foo", &MyStruct, 0)
+c.Set("foo", &MyStruct, cache.DefaultExpiration)
 if x, found := c.Get("foo"); found {
         foo := x.(*MyStruct)
         ...
@@ -73,7 +73,7 @@ if x, found := c.Get("foo"); found {
 // pointer you've stored in the cache, retrieving that pointer with Get will
 // point you to the same data:
 foo := &MyStruct{Num: 1}
-c.Set("foo", foo, 0)
+c.Set("foo", foo, cache.DefaultExpiration)
 ...
 x, _ := c.Get("foo")
 foo := x.(*MyStruct)
