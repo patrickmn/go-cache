@@ -11,7 +11,7 @@ safely used by multiple goroutines.
 Although go-cache isn't meant to be used as a persistent datastore, the entire
 cache can be saved to and loaded from a file (using `c.Items()` to retrieve the
 items map to serialize, and `NewFrom()` to create a cache from a deserialized
-one) to recover from downtime quickly. (See the docs for `NewFrom` for caveats.)
+one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats.)
 
 ### Installation
 
