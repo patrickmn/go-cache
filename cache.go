@@ -990,7 +990,7 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]*Item)
 // interval. If the expiration duration is less than one (or NoExpiration),
 // the items in the cache never expire (by default), and must be deleted
 // manually. If the cleanup interval is less than one, expired items are not
-// deleted from the cache before calling DeleteExpired.
+// deleted from the cache before calling c.DeleteExpired().
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 	items := make(map[string]*Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
@@ -1000,7 +1000,7 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // interval. If the expiration duration is less than one (or NoExpiration),
 // the items in the cache never expire (by default), and must be deleted
 // manually. If the cleanup interval is less than one, expired items are not
-// deleted from the cache before calling DeleteExpired.
+// deleted from the cache before calling c.DeleteExpired().
 //
 // NewFrom also accepts an items map which will serve as the underlying map
 // for the cache. This is useful for deserializing a cache (serialized using
