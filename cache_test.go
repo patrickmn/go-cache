@@ -1472,7 +1472,8 @@ func BenchmarkRWMutexMapGetConcurrent(b *testing.B) {
 
 func BenchmarkCacheGetManyConcurrent(b *testing.B) {
 	// This is the same as BenchmarkCacheGetConcurrent, but its result
-	// can be compared against BenchmarkShardedCacheGetManyConcurrent.
+	// can be compared against BenchmarkShardedCacheGetManyConcurrent
+	// in sharded_test.go.
 	b.StopTimer()
 	n := 10000
 	tc := New(DefaultExpiration, 0)
@@ -1489,31 +1490,6 @@ func BenchmarkCacheGetManyConcurrent(b *testing.B) {
 		go func() {
 			for j := 0; j < each; j++ {
 				tc.Get(v)
-			}
-			wg.Done()
-		}()
-	}
-	b.StartTimer()
-	wg.Wait()
-}
-
-func BenchmarkShardedCacheGetManyConcurrent(b *testing.B) {
-	b.StopTimer()
-	n := 10000
-	tsc := unexportedNewSharded(20, DefaultExpiration, 0)
-	keys := make([]string, n)
-	for i := 0; i < n; i++ {
-		k := "foo" + strconv.Itoa(n)
-		keys[i] = k
-		tsc.Set(k, "bar", DefaultExpiration)
-	}
-	each := b.N / n
-	wg := new(sync.WaitGroup)
-	wg.Add(n)
-	for _, v := range keys {
-		go func() {
-			for j := 0; j < each; j++ {
-				tsc.Get(v)
 			}
 			wg.Done()
 		}()
