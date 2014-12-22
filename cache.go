@@ -997,10 +997,10 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 }
 
 // Return a new cache with a given default expiration duration and cleanup
-// interval. If the expiration duration is less than 1, the items in the cache
-// never expire (by default), and must be deleted manually. If the cleanup
-// interval is less than one, expired items are not deleted from the cache
-// before calling DeleteExpired.
+// interval. If the expiration duration is less than one (or NoExpiration),
+// the items in the cache never expire (by default), and must be deleted
+// manually. If the cleanup interval is less than one, expired items are not
+// deleted from the cache before calling DeleteExpired.
 //
 // NewFrom also accepts an items map which will serve as the underlying map
 // for the cache. This is useful for deserializing a cache (serialized using
