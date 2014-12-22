@@ -23,6 +23,11 @@ func (item *Item) Expired() bool {
 	return item.Expiration.Before(time.Now())
 }
 
+const (
+	NoExpiration      time.Duration = -1
+	DefaultExpiration time.Duration = 0
+)
+
 type Cache struct {
 	*cache
 	// If this is confusing, see the comment at the bottom of New()
@@ -35,9 +40,9 @@ type cache struct {
 	janitor           *janitor
 }
 
-// Add an item to the cache, replacing any existing item. If the duration is 0,
-// the cache's default expiration time is used. If it is -1, the item never
-// expires.
+// Add an item to the cache, replacing any existing item. If the duration is 0
+// (DefaultExpiration), the cache's default expiration time is used. If it is -1
+// (NoExpiration), the item never expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.Lock()
 	c.set(k, x, d)
@@ -48,7 +53,7 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
 	var e *time.Time
-	if d == 0 {
+	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
@@ -982,10 +987,10 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]*Item)
 }
 
 // Return a new cache with a given default expiration duration and cleanup
-// interval. If the expiration duration is less than 1, the items in the cache
-// never expire (by default), and must be deleted manually. If the cleanup
-// interval is less than one, expired items are not deleted from the cache
-// before calling DeleteExpired.
+// interval. If the expiration duration is less than one (or NoExpiration),
+// the items in the cache never expire (by default), and must be deleted
+// manually. If the cleanup interval is less than one, expired items are not
+// deleted from the cache before calling DeleteExpired.
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 	items := make(map[string]*Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
