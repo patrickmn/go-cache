@@ -1010,8 +1010,8 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 //
 // Only the cache's methods synchronize access to this map, so it is not
 // recommended to keep any references to the map around after creating a cache.
-// If need be, the map can be accessed at a later point using c.Items() (with
-// the same caveats.)
+// If need be, the map can be accessed at a later point using c.Items() (subject
+// to the same caveat.)
 //
 // Note regarding serialization: When using e.g. gob, make sure to gob.Register
 // the individual types stored in the cache before encoding a map retrieved with
