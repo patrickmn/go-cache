@@ -821,6 +821,9 @@ func (c *cache) DeleteExpired() {
 }
 
 // Write the cache's items (using Gob) to an io.Writer.
+//
+// NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
+// documentation for NewFrom.)
 func (c *cache) Save(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
 	defer func() {
@@ -839,6 +842,9 @@ func (c *cache) Save(w io.Writer) (err error) {
 
 // Save the cache's items to the given filename, creating the file if it
 // doesn't exist, and overwriting it if it does.
+//
+// NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
+// documentation for NewFrom.)
 func (c *cache) SaveFile(fname string) error {
 	fp, err := os.Create(fname)
 	if err != nil {
@@ -854,6 +860,9 @@ func (c *cache) SaveFile(fname string) error {
 
 // Add (Gob-serialized) cache items from an io.Reader, excluding any items with
 // keys that already exist (and haven't expired) in the current cache.
+//
+// NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
+// documentation for NewFrom.)
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
 	items := map[string]*Item{}
@@ -873,6 +882,9 @@ func (c *cache) Load(r io.Reader) error {
 
 // Load and add cache items from the given filename, excluding any items with
 // keys that already exist in the current cache.
+//
+// NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
+// documentation for NewFrom.)
 func (c *cache) LoadFile(fname string) error {
 	fp, err := os.Open(fname)
 	if err != nil {
@@ -943,15 +955,30 @@ func runJanitor(c *cache, ci time.Duration) {
 	go j.Run(c)
 }
 
-func newCache(de time.Duration) *cache {
+func newCache(de time.Duration, m map[string]*Item) *cache {
 	if de == 0 {
 		de = -1
 	}
 	c := &cache{
 		defaultExpiration: de,
-		items:             map[string]*Item{},
+		items:             m,
 	}
 	return c
+}
+
+func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]*Item) *Cache {
+	c := newCache(de, m)
+	// This trick ensures that the janitor goroutine (which--granted it
+	// was enabled--is running DeleteExpired on c forever) does not keep
+	// the returned C object from being garbage collected. When it is
+	// garbage collected, the finalizer stops the janitor goroutine, after
+	// which c can be collected.
+	C := &Cache{c}
+	if ci > 0 {
+		runJanitor(c, ci)
+		runtime.SetFinalizer(C, stopJanitor)
+	}
+	return C
 }
 
 // Return a new cache with a given default expiration duration and cleanup
@@ -960,16 +987,31 @@ func newCache(de time.Duration) *cache {
 // interval is less than one, expired items are not deleted from the cache
 // before calling DeleteExpired.
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
-	c := newCache(defaultExpiration)
-	// This trick ensures that the janitor goroutine (which--granted it
-	// was enabled--is running DeleteExpired on c forever) does not keep
-	// the returned C object from being garbage collected. When it is
-	// garbage collected, the finalizer stops the janitor goroutine, after
-	// which c can be collected.
-	C := &Cache{c}
-	if cleanupInterval > 0 {
-		runJanitor(c, cleanupInterval)
-		runtime.SetFinalizer(C, stopJanitor)
-	}
-	return C
+	items := make(map[string]*Item)
+	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
+}
+
+// Return a new cache with a given default expiration duration and cleanup
+// interval. If the expiration duration is less than 1, the items in the cache
+// never expire (by default), and must be deleted manually. If the cleanup
+// interval is less than one, expired items are not deleted from the cache
+// before calling DeleteExpired.
+//
+// NewFrom also accepts an items map which will serve as the underlying map
+// for the cache. This is useful for deserializing a cache (serialized using
+// e.g. gob.Encode on c.Items()), or setting a starting size by passing in e.g.
+// make(map[string]*Item, 500) to avoid repeat initial resizing of a map that's
+// expected to reach a certain minimum size.
+//
+// Only the cache's methods synchronize access to this map, so it is not
+// recommended to keep any references to the map around after creating a cache.
+// If need be, the map can be accessed at a later point using c.Items() (with
+// the same caveats.)
+//
+// Note regarding serialization: When using e.g. gob, make sure to gob.Register
+// the individual types stored in the cache before encoding a map retrieved with
+// c.Items(), and to register those same types before decoding a blob containing
+// an items map.
+func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]*Item) *Cache {
+	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
 }

@@ -106,6 +106,34 @@ func TestCacheTimes(t *testing.T) {
 	}
 }
 
+func TestNewFrom(t *testing.T) {
+	m := map[string]*Item{
+		"a": &Item{
+			Object: 1,
+			Expiration: nil,
+		},
+		"b": &Item{
+			Object: 2,
+			Expiration: nil,
+		},
+	}
+	tc := NewFrom(0, 0, m)
+	a, found := tc.Get("a")
+	if !found {
+		t.Fatal("Did not find a")
+	}
+	if a.(int) != 1 {
+		t.Fatal("a is not 1")
+	}
+	b, found := tc.Get("b")
+	if !found {
+		t.Fatal("Did not find b")
+	}
+	if b.(int) != 2 {
+		t.Fatal("b is not 2")
+	}
+}
+
 func TestStorePointerToStruct(t *testing.T) {
 	tc := New(0, 0)
 	tc.Set("foo", &TestStruct{Num: 1}, 0)
