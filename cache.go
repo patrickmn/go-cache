@@ -1003,10 +1003,10 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // deleted from the cache before calling c.DeleteExpired().
 //
 // NewFrom also accepts an items map which will serve as the underlying map
-// for the cache. This is useful for deserializing a cache (serialized using
-// e.g. gob.Encode on c.Items()), or setting a starting size by passing in e.g.
-// make(map[string]*Item, 500) to avoid repeat initial resizing of a map that's
-// expected to reach a certain minimum size.
+// for the cache. This is useful for starting from a deserialized cache
+// (serialized using e.g. gob.Encode() on c.Items()), or passing in e.g.
+// make(map[string]*Item, 500) to improve startup performance when the cache
+// is expected to reach a certain minimum size.
 //
 // Only the cache's methods synchronize access to this map, so it is not
 // recommended to keep any references to the map around after creating a cache.
