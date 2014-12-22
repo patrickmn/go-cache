@@ -828,7 +828,7 @@ func (c *cache) DeleteExpired() {
 // Write the cache's items (using Gob) to an io.Writer.
 //
 // NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
-// documentation for NewFrom.)
+// documentation for NewFrom().)
 func (c *cache) Save(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
 	defer func() {
@@ -849,7 +849,7 @@ func (c *cache) Save(w io.Writer) (err error) {
 // doesn't exist, and overwriting it if it does.
 //
 // NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
-// documentation for NewFrom.)
+// documentation for NewFrom().)
 func (c *cache) SaveFile(fname string) error {
 	fp, err := os.Create(fname)
 	if err != nil {
@@ -867,7 +867,7 @@ func (c *cache) SaveFile(fname string) error {
 // keys that already exist (and haven't expired) in the current cache.
 //
 // NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
-// documentation for NewFrom.)
+// documentation for NewFrom().)
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
 	items := map[string]*Item{}
@@ -889,7 +889,7 @@ func (c *cache) Load(r io.Reader) error {
 // keys that already exist in the current cache.
 //
 // NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
-// documentation for NewFrom.)
+// documentation for NewFrom().)
 func (c *cache) LoadFile(fname string) error {
 	fp, err := os.Open(fname)
 	if err != nil {
