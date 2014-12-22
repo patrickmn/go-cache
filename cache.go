@@ -1002,7 +1002,7 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // manually. If the cleanup interval is less than one, expired items are not
 // deleted from the cache before calling c.DeleteExpired().
 //
-// NewFrom also accepts an items map which will serve as the underlying map
+// NewFrom() also accepts an items map which will serve as the underlying map
 // for the cache. This is useful for starting from a deserialized cache
 // (serialized using e.g. gob.Encode() on c.Items()), or passing in e.g.
 // make(map[string]*Item, 500) to improve startup performance when the cache
