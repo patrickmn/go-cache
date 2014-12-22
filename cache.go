@@ -1013,10 +1013,10 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // If need be, the map can be accessed at a later point using c.Items() (subject
 // to the same caveat.)
 //
-// Note regarding serialization: When using e.g. gob, make sure to gob.Register
-// the individual types stored in the cache before encoding a map retrieved with
-// c.Items(), and to register those same types before decoding a blob containing
-// an items map.
+// Note regarding serialization: When using e.g. gob, make sure to
+// gob.Register() the individual types stored in the cache before encoding a
+// map retrieved with c.Items(), and to register those same types before
+// decoding a blob containing an items map.
 func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]*Item) *Cache {
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
 }
