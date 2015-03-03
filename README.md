@@ -22,6 +22,7 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 	import (
 		"fmt"
 		"github.com/pmylund/go-cache"
+		"time"
 	)
 
 	func main() {
