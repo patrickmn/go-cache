@@ -1096,7 +1096,7 @@ func (c *cache) ExpireLRU() {
 		// Cache the current time.
 		// We do this "early" so that when we set an Expiration,
 		// it is definitely "do" when the janitor ticks
-		notw := time.Now()
+		now := time.Now()
 
 		var lastTime int64 = 0
 		var lastName string = ""
@@ -1121,7 +1121,7 @@ func (c *cache) ExpireLRU() {
 		if lastTime > 0 {
 			// We expire the item, but making it look .Expired(), 
 			// so the janitor will clean it up for us
-			c.items[lastName].Expiration = &notw
+			c.items[lastName].Expiration = &now
 		}
 	}
 }
