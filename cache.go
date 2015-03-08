@@ -90,11 +90,8 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	if c.maxItems > 0 {
 		// We don't want to hit the expiration if we're updating.
 		_, found := c.get(k)
-		if ! found {
-			// Create, means maybe expire
-			c.ExpireLRU() 
-		} else {
-			// Update, means don't expire, or change the Ctime
+		if found {
+			// Update means change the Ctime
 			ct = c.items[k].Created() 	
 		}
 		c.items[k] = &Item{
@@ -1062,16 +1059,11 @@ func (c *cache) ItemCount() int {
 	return n
 }
 
-// Returns the number of items in the cache *that have not expired*
+// Returns the number of items in the cache without locking. This may include 
+// items that have expired, but have not yet been cleaned up. Equivalent to 
+// len(c.Items()).
 func (c *cache) itemCount() int {
-	n := 0
-	now := time.Now()
-	
-	for _, v := range c.items {
-		if v.Expiration == nil || ! v.Expiration.Before(now) {
-			n++
-		}
-	}
+	n := len(c.items)
 	return n
 }
 
@@ -1082,48 +1074,50 @@ func (c *cache) Flush() {
 	c.Unlock()
 }
 
-// Find oldest N items, and Expire them.
-// Returns the number "expired".
-// BIG HAIRY ALERT: This function assumes it is called
-// from inside a c.Lock() .. c.Unlock() block. 
-func (c *cache) ExpireLRU() {
-
-	// We need the number of UNexpired Items
-	itemCount := c.itemCount()
-
-	if itemCount >= c.maxItems {
+// Find oldest N items, and delete them.
+func (c *cache) DeleteLRU(numItems int) {
 	
-		// Cache the current time.
-		// We do this "early" so that when we set an Expiration,
-		// it is definitely "do" when the janitor ticks
-		now := time.Now()
+	c.Lock()
 
-		var lastTime int64 = 0
-		var lastName string = ""
+	var lastTime int64 = 0
+	lastItems := make([]string, numItems) // ringbuffer for the last numItems
+	liCount := 0
+	full := false
 
-		for k, v := range c.items {
-			if v.Expired() == false {
-				// unexpired item
+	for k, v := range c.items {
+		if v.Expired() == false {
+			// unexpired item
+			
+			atime := v.LastAccessed().UnixNano()
+			if full == false || atime < lastTime {
+				// We found a least-recently-used item,
+				// or our purge buffer isn't full yet
+				lastTime = atime
 				
-				atime := v.LastAccessed().UnixNano()
-				if lastTime == 0 {
-					// We need to expire something, so let's start with the first item
-					lastTime = atime
-					lastName = k
-				} else if atime < lastTime {
-					// We found a least-recently-used item
-					lastTime = atime
-					lastName = k
+				// Append it to the buffer,
+				// or start overwriting it
+				if liCount < numItems {
+					lastItems[liCount] = k
+					liCount ++
+				} else {
+					lastItems[0] = k
+					liCount = 1
+					full = true
 				}
 			}
 		}
-		
-		if lastTime > 0 {
-			// We expire the item, but making it look .Expired(), 
-			// so the janitor will clean it up for us
-			c.items[lastName].Expiration = &now
+	}
+	
+	if lastTime > 0 {
+		// We expire the items, but making it look .Expired(), 
+		// so the janitor will clean it up for us
+		for i := 0; i < len(lastItems) && lastItems[i] != ""; i++ {
+			lastName := lastItems[i]
+			c.delete(lastName)
 		}
 	}
+	
+	c.Unlock()
 }
 
 type janitor struct {
@@ -1138,6 +1132,14 @@ func (j *janitor) Run(c *cache) {
 		select {
 		case <-tick:
 			c.DeleteExpired()
+			
+			if c.maxItems > 0 {
+				// Purge any LRU overages
+				overCount := c.itemCount() - c.maxItems
+				if overCount > 0 {
+					c.DeleteLRU(overCount)
+				}
+			}
 		case <-j.stop:
 			return
 		}
