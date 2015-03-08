@@ -1109,8 +1109,7 @@ func (c *cache) DeleteLRU(numItems int) {
 	}
 	
 	if lastTime > 0 {
-		// We expire the items, but making it look .Expired(), 
-		// so the janitor will clean it up for us
+		// Clean up the items
 		for i := 0; i < len(lastItems) && lastItems[i] != ""; i++ {
 			lastName := lastItems[i]
 			c.delete(lastName)
