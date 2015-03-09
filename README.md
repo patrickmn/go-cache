@@ -13,6 +13,15 @@ cache can be saved to and loaded from a file (using `c.Items()` to retrieve the
 items map to serialize, and `NewFrom()` to create a cache from a deserialized
 one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats.)
 
+When creating a cache object using `NewWithLRU()`, if you set the maxItems value 
+above 0, the LRU functionality is enabled. The cache automatically updates a 
+timestamp every time a given item is retrieved. In the background, the janitor takes 
+care of deleting items that have expired because of staleness, or are 
+least-recently-used when the cache is under pressure. Whatever you set your purge 
+interval to controls when the item will actually be removed from the cache. If you
+don't want to use the janitor, and wish to manually purge LRU items, then 
+`c.DeleteLRU(n)` where `n` is the number of items you'd like to purge.
+
 ### Installation
 
 `go get github.com/pmylund/go-cache`
