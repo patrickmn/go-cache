@@ -1189,7 +1189,19 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]*Item,
 // the items in the cache never expire (by default), and must be deleted
 // manually. If the cleanup interval is less than one, expired items are not
 // deleted from the cache before calling c.DeleteExpired().
-func New(defaultExpiration, cleanupInterval time.Duration,  maxItems int) *Cache {
+func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
+	items := make(map[string]*Item)
+	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, 0)
+}
+
+// Return a new cache with a given default expiration duration, cleanup
+// interval, and maximum-ish number of items. If the expiration duration 
+// is less than one (or NoExpiration), the items in the cache never expire 
+// (by default), and must be deleted manually. If the cleanup interval is 
+// less than one, expired items are not deleted from the cache before 
+// calling c.DeleteExpired() and/or c.DeleteLRU(). If maxItems is not greater 
+// than zero, then there will be no soft cap on the number of items in the cache.
+func NewWithLRU(defaultExpiration, cleanupInterval time.Duration,  maxItems int) *Cache {
 	items := make(map[string]*Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, maxItems)
 }
