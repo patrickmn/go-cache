@@ -818,6 +818,34 @@ func (c *cache) delete(k string) {
 	delete(c.items, k)
 }
 
+func (c *cache) Expire(k string, d time.Duration) error {
+	c.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.Unlock()
+		return fmt.Errorf("key %s not found.", k)
+	}
+
+	e := time.Now().Add(d)
+	v.Expiration = &e
+
+	c.Unlock()
+	return nil
+}
+
+func (c *cache) ExpireAt(k string, expire *time.Time) error {
+	c.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.Unlock()
+		return fmt.Errorf("key %s not found.", k)
+	}
+
+	v.Expiration = expire
+	c.Unlock()
+	return nil
+}
+
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
 	c.Lock()
