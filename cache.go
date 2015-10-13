@@ -941,12 +941,13 @@ type janitor struct {
 
 func (j *janitor) Run(c *cache) {
 	j.stop = make(chan bool)
-	tick := time.Tick(j.Interval)
+	ticker := time.NewTicker(j.Interval)
 	for {
 		select {
-		case <-tick:
+		case <-ticker.C:
 			c.DeleteExpired()
 		case <-j.stop:
+			ticker.Stop()
 			return
 		}
 	}
