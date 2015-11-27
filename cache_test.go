@@ -1549,10 +1549,10 @@ func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
 	tc := New(DefaultExpiration, 0)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		tc.Lock()
+		tc.mu.Lock()
 		tc.set("foo", "bar", DefaultExpiration)
 		tc.delete("foo")
-		tc.Unlock()
+		tc.mu.Unlock()
 	}
 }
 
