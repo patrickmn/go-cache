@@ -109,8 +109,8 @@ func (sc *shardedCache) DeleteExpired() {
 // fields of the items should be checked. Note that explicit synchronization
 // is needed to use a cache and its corresponding Items() return values at
 // the same time, as the maps are shared.
-func (sc *shardedCache) Items() []map[string]*Item {
-	res := make([]map[string]*Item, len(sc.cs))
+func (sc *shardedCache) Items() []map[string]Item {
+	res := make([]map[string]Item, len(sc.cs))
 	for i, v := range sc.cs {
 		res[i] = v.Items()
 	}
@@ -171,7 +171,7 @@ func newShardedCache(n int, de time.Duration) *shardedCache {
 	for i := 0; i < n; i++ {
 		c := &cache{
 			defaultExpiration: de,
-			items:             map[string]*Item{},
+			items:             map[string]Item{},
 		}
 		sc.cs[i] = c
 	}

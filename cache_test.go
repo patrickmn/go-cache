@@ -107,14 +107,14 @@ func TestCacheTimes(t *testing.T) {
 }
 
 func TestNewFrom(t *testing.T) {
-	m := map[string]*Item{
-		"a": &Item{
+	m := map[string]Item{
+		"a": Item{
 			Object:     1,
-			Expiration: nil,
+			Expiration: emptyTime,
 		},
-		"b": &Item{
+		"b": Item{
 			Object:     2,
-			Expiration: nil,
+			Expiration: emptyTime,
 		},
 	}
 	tc := NewFrom(DefaultExpiration, 0, m)

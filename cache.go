@@ -10,14 +10,16 @@ import (
 	"time"
 )
 
+var emptyTime = time.Time{}
+
 type Item struct {
 	Object     interface{}
-	Expiration *time.Time
+	Expiration time.Time
 }
 
 // Returns true if the item has expired.
-func (item *Item) Expired() bool {
-	if item.Expiration == nil {
+func (item Item) Expired() bool {
+	if item.Expiration == emptyTime {
 		return false
 	}
 	return item.Expiration.Before(time.Now())
@@ -39,7 +41,7 @@ type Cache struct {
 
 type cache struct {
 	defaultExpiration time.Duration
-	items             map[string]*Item
+	items             map[string]Item
 	mu                sync.RWMutex
 	onEvicted         func(string, interface{})
 	janitor           *janitor
@@ -57,15 +59,14 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
-	var e *time.Time
+	e := emptyTime
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		t := time.Now().Add(d)
-		e = &t
+		e = time.Now().Add(d)
 	}
-	c.items[k] = &Item{
+	c.items[k] = Item{
 		Object:     x,
 		Expiration: e,
 	}
@@ -159,6 +160,7 @@ func (c *cache) Increment(k string, n int64) error {
 		c.mu.Unlock()
 		return fmt.Errorf("The value for %s is not an integer", k)
 	}
+	c.items[k] = v
 	c.mu.Unlock()
 	return nil
 }
@@ -184,6 +186,7 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 		c.mu.Unlock()
 		return fmt.Errorf("The value for %s does not have type float32 or float64", k)
 	}
+	c.items[k] = v
 	c.mu.Unlock()
 	return nil
 }
@@ -205,6 +208,7 @@ func (c *cache) IncrementInt(k string, n int) (int, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -226,6 +230,7 @@ func (c *cache) IncrementInt8(k string, n int8) (int8, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -247,6 +252,7 @@ func (c *cache) IncrementInt16(k string, n int16) (int16, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -268,6 +274,7 @@ func (c *cache) IncrementInt32(k string, n int32) (int32, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -289,6 +296,7 @@ func (c *cache) IncrementInt64(k string, n int64) (int64, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -310,6 +318,7 @@ func (c *cache) IncrementUint(k string, n uint) (uint, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -331,6 +340,7 @@ func (c *cache) IncrementUintptr(k string, n uintptr) (uintptr, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -352,6 +362,7 @@ func (c *cache) IncrementUint8(k string, n uint8) (uint8, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -373,6 +384,7 @@ func (c *cache) IncrementUint16(k string, n uint16) (uint16, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -394,6 +406,7 @@ func (c *cache) IncrementUint32(k string, n uint32) (uint32, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -415,6 +428,7 @@ func (c *cache) IncrementUint64(k string, n uint64) (uint64, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -436,6 +450,7 @@ func (c *cache) IncrementFloat32(k string, n float32) (float32, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -457,6 +472,7 @@ func (c *cache) IncrementFloat64(k string, n float64) (float64, error) {
 	}
 	nv := rv + n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -506,6 +522,7 @@ func (c *cache) Decrement(k string, n int64) error {
 		c.mu.Unlock()
 		return fmt.Errorf("The value for %s is not an integer", k)
 	}
+	c.items[k] = v
 	c.mu.Unlock()
 	return nil
 }
@@ -531,6 +548,7 @@ func (c *cache) DecrementFloat(k string, n float64) error {
 		c.mu.Unlock()
 		return fmt.Errorf("The value for %s does not have type float32 or float64", k)
 	}
+	c.items[k] = v
 	c.mu.Unlock()
 	return nil
 }
@@ -552,6 +570,7 @@ func (c *cache) DecrementInt(k string, n int) (int, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -573,6 +592,7 @@ func (c *cache) DecrementInt8(k string, n int8) (int8, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -594,6 +614,7 @@ func (c *cache) DecrementInt16(k string, n int16) (int16, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -615,6 +636,7 @@ func (c *cache) DecrementInt32(k string, n int32) (int32, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -636,6 +658,7 @@ func (c *cache) DecrementInt64(k string, n int64) (int64, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -657,6 +680,7 @@ func (c *cache) DecrementUint(k string, n uint) (uint, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -678,6 +702,7 @@ func (c *cache) DecrementUintptr(k string, n uintptr) (uintptr, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -699,6 +724,7 @@ func (c *cache) DecrementUint8(k string, n uint8) (uint8, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -720,6 +746,7 @@ func (c *cache) DecrementUint16(k string, n uint16) (uint16, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -741,6 +768,7 @@ func (c *cache) DecrementUint32(k string, n uint32) (uint32, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -762,6 +790,7 @@ func (c *cache) DecrementUint64(k string, n uint64) (uint64, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -783,6 +812,7 @@ func (c *cache) DecrementFloat32(k string, n float32) (float32, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -804,6 +834,7 @@ func (c *cache) DecrementFloat64(k string, n float64) (float64, error) {
 	}
 	nv := rv - n
 	v.Object = nv
+	c.items[k] = v
 	c.mu.Unlock()
 	return nv, nil
 }
@@ -906,7 +937,7 @@ func (c *cache) SaveFile(fname string) error {
 // documentation for NewFrom().)
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
-	items := map[string]*Item{}
+	items := map[string]Item{}
 	err := dec.Decode(&items)
 	if err == nil {
 		c.mu.Lock()
@@ -944,7 +975,7 @@ func (c *cache) LoadFile(fname string) error {
 // fields of the items should be checked. Note that explicit synchronization
 // is needed to use a cache and its corresponding Items() return value at
 // the same time, as the map is shared.
-func (c *cache) Items() map[string]*Item {
+func (c *cache) Items() map[string]Item {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.items
@@ -962,7 +993,7 @@ func (c *cache) ItemCount() int {
 // Delete all items from the cache.
 func (c *cache) Flush() {
 	c.mu.Lock()
-	c.items = map[string]*Item{}
+	c.items = map[string]Item{}
 	c.mu.Unlock()
 }
 
@@ -997,7 +1028,7 @@ func runJanitor(c *cache, ci time.Duration) {
 	go j.Run(c)
 }
 
-func newCache(de time.Duration, m map[string]*Item) *cache {
+func newCache(de time.Duration, m map[string]Item) *cache {
 	if de == 0 {
 		de = -1
 	}
@@ -1008,7 +1039,7 @@ func newCache(de time.Duration, m map[string]*Item) *cache {
 	return c
 }
 
-func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]*Item) *Cache {
+func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) *Cache {
 	c := newCache(de, m)
 	// This trick ensures that the janitor goroutine (which--granted it
 	// was enabled--is running DeleteExpired on c forever) does not keep
@@ -1029,7 +1060,7 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]*Item)
 // manually. If the cleanup interval is less than one, expired items are not
 // deleted from the cache before calling c.DeleteExpired().
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
-	items := make(map[string]*Item)
+	items := make(map[string]Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
 }
 
@@ -1042,7 +1073,7 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // NewFrom() also accepts an items map which will serve as the underlying map
 // for the cache. This is useful for starting from a deserialized cache
 // (serialized using e.g. gob.Encode() on c.Items()), or passing in e.g.
-// make(map[string]*Item, 500) to improve startup performance when the cache
+// make(map[string]Item, 500) to improve startup performance when the cache
 // is expected to reach a certain minimum size.
 //
 // Only the cache's methods synchronize access to this map, so it is not
@@ -1054,6 +1085,6 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // gob.Register() the individual types stored in the cache before encoding a
 // map retrieved with c.Items(), and to register those same types before
 // decoding a blob containing an items map.
-func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]*Item) *Cache {
+func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]Item) *Cache {
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
 }
