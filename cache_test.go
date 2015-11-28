@@ -1224,6 +1224,24 @@ func TestDecrementUnderflowUint(t *testing.T) {
 	}
 }
 
+func TestOnEvicted(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.Set("foo", 3, DefaultExpiration)
+	if tc.onEvicted != nil {
+		t.Fatal("tc.onEvicted is not nil")
+	}
+	works := false
+	tc.OnEvicted(func(k string, v interface{}) {
+		if k == "foo" && v.(int) == 3 {
+			works = true
+		}
+	})
+	tc.Delete("foo")
+	if !works {
+		t.Error("works bool not true")
+	}
+}
+
 func TestCacheSerialization(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	testFillAndSerialize(t, tc)
