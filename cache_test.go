@@ -1592,6 +1592,16 @@ func BenchmarkRWMutexMapSetDeleteSingleLock(b *testing.B) {
 	}
 }
 
+func BenchmarkIncrementInt(b *testing.B) {
+	b.StopTimer()
+	tc := New(DefaultExpiration, 0)
+	tc.Set("foo", 0, DefaultExpiration)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		tc.IncrementInt("foo", 1)
+	}
+}
+
 func BenchmarkDeleteExpired(b *testing.B) {
 	b.StopTimer()
 	tc := New(1, 0)
