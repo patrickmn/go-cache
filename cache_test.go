@@ -1604,16 +1604,14 @@ func BenchmarkIncrementInt(b *testing.B) {
 
 func BenchmarkDeleteExpired(b *testing.B) {
 	b.StopTimer()
-	tc := New(1, 0)
+	tc := New(5 * time.Minute, 0)
 	tc.mu.Lock()
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < 100000; i++ {
 		tc.set(strconv.Itoa(i), "bar", DefaultExpiration)
 	}
 	tc.mu.Unlock()
-	time.Sleep(100)
-	if _, found := tc.Get("0"); found {
-		b.Fatal("0 found")
-	}
 	b.StartTimer()
-	tc.DeleteExpired()
+	for i := 0; i < b.N; i++ {
+		tc.DeleteExpired()
+	}
 }
