@@ -1235,10 +1235,15 @@ func TestOnEvicted(t *testing.T) {
 		if k == "foo" && v.(int) == 3 {
 			works = true
 		}
+		tc.Set("bar", 4, DefaultExpiration)
 	})
 	tc.Delete("foo")
+	x, _ := tc.Get("bar")
 	if !works {
 		t.Error("works bool not true")
+	}
+	if x.(int) != 4 {
+		t.Error("bar was not 4")
 	}
 }
 
