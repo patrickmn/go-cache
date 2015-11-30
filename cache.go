@@ -13,17 +13,17 @@ import (
 
 type Item struct {
 	Object     interface{}
-	Expiration syscall.Timeval
+	Expiration int64
 }
 
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
-	if item.Expiration.Sec == 0 {
+	if item.Expiration == 0 {
 		return false
 	}
 	var tv syscall.Timeval
 	syscall.Gettimeofday(&tv)
-	return tv.Sec > item.Expiration.Sec || (tv.Sec == item.Expiration.Sec && tv.Usec > item.Expiration.Usec)
+	return tv.Nano() > item.Expiration
 }
 
 const (
@@ -60,12 +60,12 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
-	var e syscall.Timeval
+	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		e = syscall.NsecToTimeval(time.Now().Add(d).UnixNano())
+		e = time.Now().Add(d).UnixNano()
 	}
 	c.items[k] = Item{
 		Object:     x,
@@ -105,16 +105,16 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
-	// "Inlining" of get and expired
+	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	if !found {
 		c.mu.RUnlock()
 		return nil, false
 	}
-	if item.Expiration.Sec > 0 {
+	if item.Expiration > 0 {
 		var tv syscall.Timeval
 		syscall.Gettimeofday(&tv)
-		if tv.Sec > item.Expiration.Sec || (tv.Sec == item.Expiration.Sec && tv.Usec > item.Expiration.Usec) {
+		if tv.Nano() > item.Expiration {
 			c.mu.RUnlock()
 			return nil, false
 		}
@@ -129,10 +129,10 @@ func (c *cache) get(k string) (interface{}, bool) {
 		return nil, false
 	}
 	// "Inlining" of Expired
-	if item.Expiration.Sec > 0 {
+	if item.Expiration > 0 {
 		var tv syscall.Timeval
 		syscall.Gettimeofday(&tv)
-		if tv.Sec > item.Expiration.Sec || (tv.Sec == item.Expiration.Sec && tv.Usec > item.Expiration.Usec) {
+		if tv.Nano() > item.Expiration {
 			c.mu.RUnlock()
 			return nil, false
 		}
@@ -890,13 +890,16 @@ type keyAndValue struct {
 
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
-	var evictedItems []keyAndValue
-	var now syscall.Timeval
-	syscall.Gettimeofday(&now)
+	var (
+		evictedItems []keyAndValue
+		tv syscall.Timeval
+	)
+	syscall.Gettimeofday(&tv)
+	now := tv.Nano()
 	c.mu.Lock()
 	for k, v := range c.items {
 		// "Inlining" of expired
-		if v.Expiration.Sec > 0 && (now.Sec > v.Expiration.Sec || (now.Sec == v.Expiration.Sec && now.Usec > v.Expiration.Usec)) {
+		if v.Expiration > 0 && now > v.Expiration {
 			ov, evicted := c.delete(k)
 			if evicted {
 				evictedItems = append(evictedItems, keyAndValue{k, ov})
