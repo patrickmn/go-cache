@@ -7,22 +7,23 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 )
 
-var emptyTime = time.Time{}
-
 type Item struct {
 	Object     interface{}
-	Expiration int64
+	Expiration syscall.Timeval
 }
 
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
-	if item.Expiration == 0 {
+	if item.Expiration.Sec == 0 {
 		return false
 	}
-	return time.Now().UnixNano() > item.Expiration
+	var tv syscall.Timeval
+	syscall.Gettimeofday(&tv)
+	return tv.Sec > item.Expiration.Sec || (tv.Sec == item.Expiration.Sec && tv.Usec > item.Expiration.Usec)
 }
 
 const (
@@ -59,12 +60,12 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
-	var e int64
+	var e syscall.Timeval
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		e = time.Now().Add(d).UnixNano()
+		e = syscall.NsecToTimeval(time.Now().Add(d).UnixNano())
 	}
 	c.items[k] = Item{
 		Object:     x,
@@ -106,19 +107,35 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
 	// "Inlining" of get and expired
 	item, found := c.items[k]
-	if !found || (item.Expiration > 0 && time.Now().UnixNano() > item.Expiration) {
+	if !found {
 		c.mu.RUnlock()
 		return nil, false
 	}
+	if item.Expiration.Sec > 0 {
+		var tv syscall.Timeval
+		syscall.Gettimeofday(&tv)
+		if tv.Sec > item.Expiration.Sec || (tv.Sec == item.Expiration.Sec && tv.Usec > item.Expiration.Usec) {
+			c.mu.RUnlock()
+			return nil, false
+		}
+	}
 	c.mu.RUnlock()
-	return item.Object, found
+	return item.Object, true
 }
 
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
-	// "Inlining" of expired
-	if !found || (item.Expiration > 0 && time.Now().UnixNano() > item.Expiration) {
+	if !found {
 		return nil, false
+	}
+	// "Inlining" of Expired
+	if item.Expiration.Sec > 0 {
+		var tv syscall.Timeval
+		syscall.Gettimeofday(&tv)
+		if tv.Sec > item.Expiration.Sec || (tv.Sec == item.Expiration.Sec && tv.Usec > item.Expiration.Usec) {
+			c.mu.RUnlock()
+			return nil, false
+		}
 	}
 	return item.Object, true
 }
@@ -874,11 +891,12 @@ type keyAndValue struct {
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
 	var evictedItems []keyAndValue
-	now := time.Now().UnixNano()
+	var now syscall.Timeval
+	syscall.Gettimeofday(&now)
 	c.mu.Lock()
 	for k, v := range c.items {
 		// "Inlining" of expired
-		if v.Expiration > 0 && now > v.Expiration {
+		if v.Expiration.Sec > 0 && (now.Sec > v.Expiration.Sec || (now.Sec == v.Expiration.Sec && now.Usec > v.Expiration.Usec)) {
 			ov, evicted := c.delete(k)
 			if evicted {
 				evictedItems = append(evictedItems, keyAndValue{k, ov})

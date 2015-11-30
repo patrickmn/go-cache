@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -110,11 +111,11 @@ func TestNewFrom(t *testing.T) {
 	m := map[string]Item{
 		"a": Item{
 			Object:     1,
-			Expiration: 0,
+			Expiration: syscall.Timeval{},
 		},
 		"b": Item{
 			Object:     2,
-			Expiration: 0,
+			Expiration: syscall.Timeval{},
 		},
 	}
 	tc := NewFrom(DefaultExpiration, 0, m)
