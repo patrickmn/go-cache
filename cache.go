@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"github.com/petar/GoLLRB/llrb"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -13,8 +14,13 @@ import (
 var emptyTime = time.Time{}
 
 type Item struct {
-	Object     interface{}
-	Expiration time.Time
+	Object     	interface{}
+	Expiration 	time.Time
+	Key 		   	string
+}
+
+func (item Item) Less(than llrb.Item) bool {
+	return item.Expiration.Before(than.(Item).Expiration)
 }
 
 // Returns true if the item has expired.
@@ -40,11 +46,12 @@ type Cache struct {
 }
 
 type cache struct {
-	defaultExpiration time.Duration
-	items             map[string]Item
-	mu                sync.RWMutex
-	onEvicted         func(string, interface{})
-	janitor           *janitor
+	defaultExpiration 	time.Duration
+	items           		map[string]Item
+	mu              		sync.RWMutex
+	onEvicted       		func(string, interface{})
+	janitor      		*janitor
+	sortedItems			*llrb.LLRB
 }
 
 // Add an item to the cache, replacing any existing item. If the duration is 0
@@ -66,10 +73,18 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	if d > 0 {
 		e = time.Now().Add(d)
 	}
-	c.items[k] = Item{
-		Object:     x,
-		Expiration: e,
+	item := Item{
+		Object:     	x,
+		Expiration: 	e,
+		Key : 	   	k,
 	}
+	//if an item with the same key exists in the cache, remove it from the bst
+	old, found := c.items[k]
+	if found {
+		c.sortedItems.Delete(old)
+		c.sortedItems.InsertNoReplace(item)
+	}
+	c.items[k] = item
 }
 
 // Add an item to the cache only if an item doesn't already exist for the given
@@ -1041,6 +1056,11 @@ func newCache(de time.Duration, m map[string]Item) *cache {
 
 func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) *Cache {
 	c := newCache(de, m)
+	c.sortedItems = llrb.New()
+	//we can probably do bulk insertion here to speed it up
+	for _, item := range m {
+		c.sortedItems.InsertNoReplace(item)
+	}
 	// This trick ensures that the janitor goroutine (which--granted it
 	// was enabled--is running DeleteExpired on c forever) does not keep
 	// the returned C object from being garbage collected. When it is
