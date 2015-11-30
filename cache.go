@@ -17,12 +17,16 @@ type Item struct {
 	Expiration time.Time
 }
 
-// Returns true if the item has expired.
-func (item Item) Expired() bool {
+func (item Item) expired(now time.Time) bool {
 	if item.Expiration == emptyTime {
 		return false
 	}
-	return item.Expiration.Before(time.Now())
+	return item.Expiration.Before(now)
+}
+
+// Returns true if the item has expired.
+func (item Item) Expired() bool {
+	return item.expired(time.Now())
 }
 
 const (
@@ -868,9 +872,10 @@ type keyAndValue struct {
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
 	var evictedItems []keyAndValue
+	now := time.Now()
 	c.mu.Lock()
 	for k, v := range c.items {
-		if v.Expired() {
+		if v.expired(now) {
 			ov, evicted := c.delete(k)
 			if evicted {
 				evictedItems = append(evictedItems, keyAndValue{k, ov})
