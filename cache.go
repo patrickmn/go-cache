@@ -14,23 +14,23 @@ var emptyTime = time.Time{}
 
 type Item struct {
 	Object     interface{}
-	Expiration time.Time
+	Expiration int64
 }
 
-func (item Item) expired(now time.Time) bool {
-	if item.Expiration == emptyTime {
+func (item Item) expired(now int64) bool {
+	if item.Expiration == 0 {
 		return false
 	}
-	return item.Expiration.Before(now)
+	return now > item.Expiration
 }
 
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
 	// "Inlining" of expired
-	if item.Expiration == emptyTime {
+	if item.Expiration == 0 {
 		return false
 	}
-	return item.Expiration.Before(time.Now())
+	return time.Now().UnixNano() > item.Expiration
 }
 
 const (
@@ -67,12 +67,12 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
-	e := emptyTime
+	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		e = time.Now().Add(d)
+		e = time.Now().Add(d).UnixNano()
 	}
 	c.items[k] = Item{
 		Object:     x,
@@ -881,7 +881,7 @@ type keyAndValue struct {
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
 	var evictedItems []keyAndValue
-	now := time.Now()
+	now := time.Now().UnixNano()
 	c.mu.Lock()
 	for k, v := range c.items {
 		if v.expired(now) {
