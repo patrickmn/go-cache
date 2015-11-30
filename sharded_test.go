@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 )
 
 // func TestDjb33(t *testing.T) {
@@ -32,9 +33,17 @@ func TestShardedCache(t *testing.T) {
 	}
 }
 
-func BenchmarkShardedCacheGet(b *testing.B) {
+func BenchmarkShardedCacheGetExpiring(b *testing.B) {
+	benchmarkShardedCacheGet(b, 5 * time.Minute)
+}
+
+func BenchmarkShardedCacheGetNotExpiring(b *testing.B) {
+	benchmarkShardedCacheGet(b, NoExpiration)
+}
+
+func benchmarkShardedCacheGet(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := unexportedNewSharded(DefaultExpiration, 0, 10)
+	tc := unexportedNewSharded(exp, 0, 10)
 	tc.Set("foobarba", "zquux", DefaultExpiration)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
@@ -42,10 +51,18 @@ func BenchmarkShardedCacheGet(b *testing.B) {
 	}
 }
 
-func BenchmarkShardedCacheGetManyConcurrent(b *testing.B) {
+func BenchmarkShardedCacheGetManyConcurrentExpiring(b *testing.B) {
+	benchmarkShardedCacheGetManyConcurrent(b, 5 * time.Minute)
+}
+
+func BenchmarkShardedCacheGetManyConcurrentNotExpiring(b *testing.B) {
+	benchmarkShardedCacheGetManyConcurrent(b, NoExpiration)
+}
+
+func benchmarkShardedCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	b.StopTimer()
 	n := 10000
-	tsc := unexportedNewSharded(DefaultExpiration, 0, 20)
+	tsc := unexportedNewSharded(exp, 0, 20)
 	keys := make([]string, n)
 	for i := 0; i < n; i++ {
 		k := "foo" + strconv.Itoa(n)
