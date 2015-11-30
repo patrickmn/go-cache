@@ -17,16 +17,8 @@ type Item struct {
 	Expiration int64
 }
 
-func (item Item) expired(now int64) bool {
-	if item.Expiration == 0 {
-		return false
-	}
-	return now > item.Expiration
-}
-
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
-	// "Inlining" of expired
 	if item.Expiration == 0 {
 		return false
 	}
