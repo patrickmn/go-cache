@@ -26,7 +26,11 @@ func (item Item) expired(now time.Time) bool {
 
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
-	return item.expired(time.Now())
+	// "Inlining" of expired
+	if item.Expiration == emptyTime {
+		return false
+	}
+	return item.Expiration.Before(time.Now())
 }
 
 const (
@@ -108,9 +112,14 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
-	x, found := c.get(k)
+	// "Inlining" of get
+	item, found := c.items[k]
+	if !found || item.Expired() {
+		c.mu.RUnlock()
+		return nil, false
+	}
 	c.mu.RUnlock()
-	return x, found
+	return item.Object, found
 }
 
 func (c *cache) get(k string) (interface{}, bool) {
