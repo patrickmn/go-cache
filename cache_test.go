@@ -1426,7 +1426,7 @@ func TestSerializeUnserializable(t *testing.T) {
 }
 
 func BenchmarkCacheGetExpiring(b *testing.B) {
-	benchmarkCacheGet(b, 5 * time.Minute)
+	benchmarkCacheGet(b, 5*time.Minute)
 }
 
 func BenchmarkCacheGetNotExpiring(b *testing.B) {
@@ -1458,7 +1458,7 @@ func BenchmarkRWMutexMapGet(b *testing.B) {
 }
 
 func BenchmarkCacheGetConcurrentExpiring(b *testing.B) {
-	benchmarkCacheGetConcurrent(b, 5 * time.Minute)
+	benchmarkCacheGetConcurrent(b, 5*time.Minute)
 }
 
 func BenchmarkCacheGetConcurrentNotExpiring(b *testing.B) {
@@ -1510,7 +1510,7 @@ func BenchmarkRWMutexMapGetConcurrent(b *testing.B) {
 }
 
 func BenchmarkCacheGetManyConcurrentExpiring(b *testing.B) {
-	benchmarkCacheGetManyConcurrent(b, 5 * time.Minute)
+	benchmarkCacheGetManyConcurrent(b, 5*time.Minute)
 }
 
 func BenchmarkCacheGetManyConcurrentNotExpiring(b *testing.B) {
@@ -1546,7 +1546,7 @@ func benchmarkCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 }
 
 func BenchmarkCacheSetExpiring(b *testing.B) {
-	benchmarkCacheSet(b, 5 * time.Minute)
+	benchmarkCacheSet(b, 5*time.Minute)
 }
 
 func BenchmarkCacheSetNotExpiring(b *testing.B) {
@@ -1636,7 +1636,7 @@ func BenchmarkIncrementInt(b *testing.B) {
 
 func BenchmarkDeleteExpiredLoop(b *testing.B) {
 	b.StopTimer()
-	tc := New(5 * time.Minute, 0)
+	tc := New(5*time.Minute, 0)
 	tc.mu.Lock()
 	for i := 0; i < 100000; i++ {
 		tc.set(strconv.Itoa(i), "bar", DefaultExpiration)

@@ -34,7 +34,7 @@ func TestShardedCache(t *testing.T) {
 }
 
 func BenchmarkShardedCacheGetExpiring(b *testing.B) {
-	benchmarkShardedCacheGet(b, 5 * time.Minute)
+	benchmarkShardedCacheGet(b, 5*time.Minute)
 }
 
 func BenchmarkShardedCacheGetNotExpiring(b *testing.B) {
@@ -52,7 +52,7 @@ func benchmarkShardedCacheGet(b *testing.B, exp time.Duration) {
 }
 
 func BenchmarkShardedCacheGetManyConcurrentExpiring(b *testing.B) {
-	benchmarkShardedCacheGetManyConcurrent(b, 5 * time.Minute)
+	benchmarkShardedCacheGetManyConcurrent(b, 5*time.Minute)
 }
 
 func BenchmarkShardedCacheGetManyConcurrentNotExpiring(b *testing.B) {
