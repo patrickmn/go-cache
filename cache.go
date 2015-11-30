@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-var emptyTime = time.Time{}
-
 type Item struct {
 	Object     interface{}
 	Expiration int64
