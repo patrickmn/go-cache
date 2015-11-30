@@ -112,9 +112,9 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
-	// "Inlining" of get
+	// "Inlining" of get and expired
 	item, found := c.items[k]
-	if !found || item.Expired() {
+	if !found || (item.Expiration > 0 && time.Now().UnixNano() > item.Expiration) {
 		c.mu.RUnlock()
 		return nil, false
 	}
@@ -124,7 +124,8 @@ func (c *cache) Get(k string) (interface{}, bool) {
 
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
-	if !found || item.Expired() {
+	// "Inlining" of expired
+	if !found || (item.Expiration > 0 && time.Now().UnixNano() > item.Expiration) {
 		return nil, false
 	}
 	return item.Object, true
@@ -884,7 +885,8 @@ func (c *cache) DeleteExpired() {
 	now := time.Now().UnixNano()
 	c.mu.Lock()
 	for k, v := range c.items {
-		if v.expired(now) {
+		// "Inlining" of expired
+		if v.Expiration > 0 && now > v.Expiration {
 			ov, evicted := c.delete(k)
 			if evicted {
 				evictedItems = append(evictedItems, keyAndValue{k, ov})
