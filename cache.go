@@ -906,8 +906,8 @@ func (c *cache) DeleteExpired() {
 // not when it is overwritten.) Set to nil to disable.
 func (c *cache) OnEvicted(f func(string, interface{})) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.onEvicted = f
+	c.mu.Unlock()
 }
 
 // Write the cache's items (using Gob) to an io.Writer.
