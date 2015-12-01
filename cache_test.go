@@ -1650,15 +1650,41 @@ func BenchmarkDeleteExpiredLoop(b *testing.B) {
 
 func BenchmarkLargeCache(b *testing.B) {
 	b.StopTimer()
-	tc := New(100 * time.Millisecond, 1 * time.Millisecond)
-	//tc.mu.Lock()
-	for i := 0; i < 1000000; i++ {
-		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
-	}
-	//tc.mu.Unlock()
-	tc.DeleteExpired()
+	tc := New(100*time.Millisecond, 5*time.Millisecond)
 	b.StartTimer()
-	for i := 1000000; i <1000000 + b.N; i++ {
+	b.N = 10000000
+	for i := 0; i < b.N; i++ {
 		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
 	}
 }
+
+/*
+func BenchmarkLargeCache(b *testing.B) {
+	b.StopTimer()
+	tc := New(1*time.Millisecond, 0*time.Millisecond)
+	M := 1000000
+	start := time.Now().UnixNano()
+	for i := 0; i < M; i++ {
+		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
+	}
+	elapsed := (time.Now().UnixNano() - start)/1000000
+	interval := elapsed/100	
+	b.Logf("Time to insert %d items: %d milliseconds", M, elapsed)
+	b.Logf("Interval: %d milliseconds", interval)
+	
+	tc = New(time.Duration(elapsed)*time.Millisecond, 0*time.Millisecond)
+	for i := 0; i < M; i++ {
+		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
+	}
+	b.Logf("Cache size: %d", tc.ItemCount())
+	items := tc.cache.items
+	tc = NewFrom(time.Duration(elapsed)*time.Millisecond, time.Duration(interval)*time.Millisecond, items)
+	
+	b.StartTimer()
+	for i := M; i <M + b.N; i++ {
+		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
+	}
+}
+*/
+
+
