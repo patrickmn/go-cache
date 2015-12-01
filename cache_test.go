@@ -1650,6 +1650,17 @@ func BenchmarkDeleteExpiredLoop(b *testing.B) {
 
 func BenchmarkLargeCache(b *testing.B) {
 	b.StopTimer()
+	tc := New(100*time.Millisecond, 1*time.Millisecond)
+	b.StartTimer()
+	b.N = 1000000
+	for i := 0; i < b.N; i++ {
+		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
+	}
+}
+
+/*
+func BenchmarkLargeCache(b *testing.B) {
+	b.StopTimer()
 	tc := New(time.Second, 10*time.Millisecond)
 	end := time.Now().Add(tc.defaultExpiration)
 	var i int
@@ -1657,11 +1668,11 @@ func BenchmarkLargeCache(b *testing.B) {
 		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
 		i++
 	}
-	/*
+	
 	for i := 0; i < 1000000; i++ {
 		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
 	}
-	*/
+	
 	tc.DeleteExpired()
 	b.Logf("Cache size: %d", tc.ItemCount())
 	b.StartTimer()
@@ -1669,3 +1680,4 @@ func BenchmarkLargeCache(b *testing.B) {
 		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
 	}
 }
+*/
