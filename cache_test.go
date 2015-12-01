@@ -1615,3 +1615,18 @@ func BenchmarkDeleteExpired(b *testing.B) {
 		tc.DeleteExpired()
 	}
 }
+
+func BenchmarkLargeCache(b *testing.B) {
+	b.StopTimer()
+	tc := New(200 * time.Millisecond, 50 * time.Millisecond)
+	//tc.mu.Lock()
+	for i := 0; i < 100000; i++ {
+		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
+	}
+	//tc.mu.Unlock()
+	tc.DeleteExpired()
+	b.StartTimer()
+	for i := 100000; i <100000 + b.N; i++ {
+		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
+	}
+}
