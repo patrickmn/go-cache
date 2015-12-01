@@ -103,4 +103,4 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 
 ### Reference
 
-`godoc` or [http://godoc.org/github.com/pmylund/go-cache](http://godoc.org/github.com/pmylund/go-cache)
+`godoc` or [http://godoc.org/github.com/patrickmn/go-cache](http://godoc.org/github.com/patrickmn/go-cache)

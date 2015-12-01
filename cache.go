@@ -11,24 +11,25 @@ import (
 	"time"
 )
 
-var emptyTime = time.Time{}
 
 type Item struct {
 	Object     	interface{}
-	Expiration 	time.Time
+	Expiration 	int64
 	Key 		   	string
 }
 
 func (item Item) Less(than llrb.Item) bool {
-	return item.Expiration.Before(than.(Item).Expiration)
+	//return item.Expiration.Before(than.(Item).Expiration)
+	return item.Expiration < than.(Item).Expiration 
 }
+
 
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
-	if item.Expiration == emptyTime {
+	if item.Expiration == 0 {
 		return false
 	}
-	return item.Expiration.Before(time.Now())
+	return time.Now().UnixNano() > item.Expiration
 }
 
 const (
@@ -65,7 +66,7 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Unlock()
 }
 
-func (c *cache) set(k string, x interface{}, d time.Duration) {	
+func (c *cache) set(k string, x interface{}, d time.Duration) {
 	item := Item{
 		Object:     	x,
 		Key : 	   	k,
@@ -74,18 +75,17 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		item.Expiration = time.Now().Add(d)
+		item.Expiration = time.Now().Add(d).UnixNano()
 		//if an item with the same key exists in the cache, remove it from the bst
 		old, found := c.items[k]
 		if found {
 			c.sortedItems.Delete(old)
 			c.sortedItems.InsertNoReplace(item)
 		}		
-	} else {
-		item.Expiration = emptyTime
-	}		
+	} 	
 	c.items[k] = item
 }
+
 
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
@@ -119,15 +119,33 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
-	x, found := c.get(k)
+	// "Inlining" of get and Expired
+	item, found := c.items[k]
+	if !found {
+		c.mu.RUnlock()
+		return nil, false
+	}
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			c.mu.RUnlock()
+			return nil, false
+		}
+	}
 	c.mu.RUnlock()
-	return x, found
+	return item.Object, true
 }
 
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
-	if !found || item.Expired() {
+	if !found {
 		return nil, false
+	}
+	// "Inlining" of Expired
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			c.mu.RUnlock()
+			return nil, false
+		}
 	}
 	return item.Object, true
 }
@@ -144,7 +162,7 @@ func (c *cache) Increment(k string, n int64) error {
 		c.mu.Unlock()
 		return fmt.Errorf("Item %s not found", k)
 	}
-	if v.Expiration != emptyTime {
+	if v.Expiration != 0 {
 		c.sortedItems.Delete(v)
 	}
 	switch v.Object.(type) {
@@ -179,7 +197,7 @@ func (c *cache) Increment(k string, n int64) error {
 		return fmt.Errorf("The value for %s is not an integer", k)
 	}
 	c.items[k] = v
-	if v.Expiration != emptyTime {
+	if v.Expiration != 0 {
 		c.sortedItems.InsertNoReplace(v)
 	}
 	c.mu.Unlock()
@@ -885,10 +903,10 @@ func (c *cache) delete(k string) (interface{}, bool) {
 func (c *cache) DeleteExpired() {
 	var evictedItems []Item
 	c.mu.Lock()
-	c.sortedItems.DescendLessOrEqual(Item{Expiration: time.Now()}, func(i llrb.Item) bool {
+	c.sortedItems.DescendLessOrEqual(Item{Expiration: time.Now().UnixNano()}, func(i llrb.Item) bool {
 		v := i.(Item)
 		c.delete(v.Key)
-		evictedItems = append(evictedItems, v)
+		evictedItems = append(evictedItems, v)	
 		return true
 	})
 	for _, v := range evictedItems {
@@ -902,13 +920,15 @@ func (c *cache) DeleteExpired() {
 	}	
 }
 
+
+
 // Sets an (optional) function that is called with the key and value when an
 // item is evicted from the cache. (Including when it is deleted manually, but
 // not when it is overwritten.) Set to nil to disable.
 func (c *cache) OnEvicted(f func(string, interface{})) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.onEvicted = f
+	c.mu.Unlock()
 }
 
 // Write the cache's items (using Gob) to an io.Writer.
@@ -965,7 +985,12 @@ func (c *cache) Load(r io.Reader) error {
 			ov, found := c.items[k]
 			if !found || ov.Expired() {
 				c.items[k] = v
+				if found {
+					c.sortedItems.Delete(ov)
+				}
+				c.sortedItems.InsertNoReplace(v)
 			}
+	
 		}
 	}
 	return err
@@ -1013,6 +1038,7 @@ func (c *cache) ItemCount() int {
 func (c *cache) Flush() {
 	c.mu.Lock()
 	c.items = map[string]Item{}
+	c.sortedItems = llrb.New()
 	c.mu.Unlock()
 }
 
@@ -1055,16 +1081,16 @@ func newCache(de time.Duration, m map[string]Item) *cache {
 		defaultExpiration: de,
 		items:             m,
 	}
-	return c
-}
-
-func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) *Cache {
-	c := newCache(de, m)
 	c.sortedItems = llrb.New()
 	//we can probably do bulk insertion here to speed it up
 	for _, item := range m {
 		c.sortedItems.InsertNoReplace(item)
 	}
+	return c
+}
+
+func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) *Cache {
+	c := newCache(de, m)
 	// This trick ensures that the janitor goroutine (which--granted it
 	// was enabled--is running DeleteExpired on c forever) does not keep
 	// the returned C object from being garbage collected. When it is

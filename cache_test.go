@@ -110,11 +110,11 @@ func TestNewFrom(t *testing.T) {
 	m := map[string]Item{
 		"a": Item{
 			Object:     1,
-			Expiration: emptyTime,
+			Expiration: 0,
 		},
 		"b": Item{
 			Object:     2,
-			Expiration: emptyTime,
+			Expiration: 0,
 		},
 	}
 	tc := NewFrom(DefaultExpiration, 0, m)
@@ -1425,9 +1425,17 @@ func TestSerializeUnserializable(t *testing.T) {
 	}
 }
 
-func BenchmarkCacheGet(b *testing.B) {
+func BenchmarkCacheGetExpiring(b *testing.B) {
+	benchmarkCacheGet(b, 5*time.Minute)
+}
+
+func BenchmarkCacheGetNotExpiring(b *testing.B) {
+	benchmarkCacheGet(b, NoExpiration)
+}
+
+func benchmarkCacheGet(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := New(DefaultExpiration, 0)
+	tc := New(exp, 0)
 	tc.Set("foo", "bar", DefaultExpiration)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
@@ -1449,9 +1457,17 @@ func BenchmarkRWMutexMapGet(b *testing.B) {
 	}
 }
 
-func BenchmarkCacheGetConcurrent(b *testing.B) {
+func BenchmarkCacheGetConcurrentExpiring(b *testing.B) {
+	benchmarkCacheGetConcurrent(b, 5*time.Minute)
+}
+
+func BenchmarkCacheGetConcurrentNotExpiring(b *testing.B) {
+	benchmarkCacheGetConcurrent(b, NoExpiration)
+}
+
+func benchmarkCacheGetConcurrent(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := New(DefaultExpiration, 0)
+	tc := New(exp, 0)
 	tc.Set("foo", "bar", DefaultExpiration)
 	wg := new(sync.WaitGroup)
 	workers := runtime.NumCPU()
@@ -1493,13 +1509,21 @@ func BenchmarkRWMutexMapGetConcurrent(b *testing.B) {
 	wg.Wait()
 }
 
-func BenchmarkCacheGetManyConcurrent(b *testing.B) {
+func BenchmarkCacheGetManyConcurrentExpiring(b *testing.B) {
+	benchmarkCacheGetManyConcurrent(b, 5*time.Minute)
+}
+
+func BenchmarkCacheGetManyConcurrentNotExpiring(b *testing.B) {
+	benchmarkCacheGetManyConcurrent(b, NoExpiration)
+}
+
+func benchmarkCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	// This is the same as BenchmarkCacheGetConcurrent, but its result
 	// can be compared against BenchmarkShardedCacheGetManyConcurrent
 	// in sharded_test.go.
 	b.StopTimer()
 	n := 10000
-	tc := New(DefaultExpiration, 0)
+	tc := New(exp, 0)
 	keys := make([]string, n)
 	for i := 0; i < n; i++ {
 		k := "foo" + strconv.Itoa(n)
@@ -1521,9 +1545,17 @@ func BenchmarkCacheGetManyConcurrent(b *testing.B) {
 	wg.Wait()
 }
 
-func BenchmarkCacheSet(b *testing.B) {
+func BenchmarkCacheSetExpiring(b *testing.B) {
+	benchmarkCacheSet(b, 5*time.Minute)
+}
+
+func BenchmarkCacheSetNotExpiring(b *testing.B) {
+	benchmarkCacheSet(b, NoExpiration)
+}
+
+func benchmarkCacheSet(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := New(DefaultExpiration, 0)
+	tc := New(exp, 0)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tc.Set("foo", "bar", DefaultExpiration)
@@ -1602,9 +1634,9 @@ func BenchmarkIncrementInt(b *testing.B) {
 	}
 }
 
-func BenchmarkDeleteExpired(b *testing.B) {
+func BenchmarkDeleteExpiredLoop(b *testing.B) {
 	b.StopTimer()
-	tc := New(5 * time.Minute, 0)
+	tc := New(5*time.Minute, 0)
 	tc.mu.Lock()
 	for i := 0; i < 100000; i++ {
 		tc.set(strconv.Itoa(i), "bar", DefaultExpiration)
@@ -1618,13 +1650,20 @@ func BenchmarkDeleteExpired(b *testing.B) {
 
 func BenchmarkLargeCache(b *testing.B) {
 	b.StopTimer()
-	tc := New(100 * time.Millisecond, 1 * time.Millisecond)
-	//tc.mu.Lock()
+	tc := New(time.Second, 10*time.Millisecond)
+	end := time.Now().Add(tc.defaultExpiration)
+	var i int
+	for time.Now().Before(end) {
+		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
+		i++
+	}
+	/*
 	for i := 0; i < 1000000; i++ {
 		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
 	}
-	//tc.mu.Unlock()
+	*/
 	tc.DeleteExpired()
+	b.Logf("Cache size: %d", tc.ItemCount())
 	b.StartTimer()
 	for i := 1000000; i <1000000 + b.N; i++ {
 		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
