@@ -10,19 +10,17 @@ import (
 	"time"
 )
 
-var emptyTime = time.Time{}
-
 type Item struct {
 	Object     interface{}
-	Expiration time.Time
+	Expiration int64
 }
 
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
-	if item.Expiration == emptyTime {
+	if item.Expiration == 0 {
 		return false
 	}
-	return item.Expiration.Before(time.Now())
+	return time.Now().UnixNano() > item.Expiration
 }
 
 const (
@@ -51,20 +49,31 @@ type cache struct {
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
+	// "Inlining" of set
+	var e int64
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+	if d > 0 {
+		e = time.Now().Add(d).UnixNano()
+	}
 	c.mu.Lock()
-	c.set(k, x, d)
+	c.items[k] = Item{
+		Object:     x,
+		Expiration: e,
+	}
 	// TODO: Calls to mu.Unlock are currently not deferred because defer
 	// adds ~200 ns (as of go1.)
 	c.mu.Unlock()
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
-	e := emptyTime
+	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		e = time.Now().Add(d)
+		e = time.Now().Add(d).UnixNano()
 	}
 	c.items[k] = Item{
 		Object:     x,
@@ -104,15 +113,33 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
-	x, found := c.get(k)
+	// "Inlining" of get and Expired
+	item, found := c.items[k]
+	if !found {
+		c.mu.RUnlock()
+		return nil, false
+	}
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			c.mu.RUnlock()
+			return nil, false
+		}
+	}
 	c.mu.RUnlock()
-	return x, found
+	return item.Object, true
 }
 
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
-	if !found || item.Expired() {
+	if !found {
 		return nil, false
+	}
+	// "Inlining" of Expired
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			c.mu.RUnlock()
+			return nil, false
+		}
 	}
 	return item.Object, true
 }
@@ -868,9 +895,11 @@ type keyAndValue struct {
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
 	var evictedItems []keyAndValue
+	now := time.Now().UnixNano()
 	c.mu.Lock()
 	for k, v := range c.items {
-		if v.Expired() {
+		// "Inlining" of expired
+		if v.Expiration > 0 && now > v.Expiration {
 			ov, evicted := c.delete(k)
 			if evicted {
 				evictedItems = append(evictedItems, keyAndValue{k, ov})
@@ -888,8 +917,8 @@ func (c *cache) DeleteExpired() {
 // not when it is overwritten.) Set to nil to disable.
 func (c *cache) OnEvicted(f func(string, interface{})) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.onEvicted = f
+	c.mu.Unlock()
 }
 
 // Write the cache's items (using Gob) to an io.Writer.
