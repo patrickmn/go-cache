@@ -65,25 +65,25 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Unlock()
 }
 
-func (c *cache) set(k string, x interface{}, d time.Duration) {
-	e := emptyTime
+func (c *cache) set(k string, x interface{}, d time.Duration) {	
+	item := Item{
+		Object:     	x,
+		Key : 	   	k,
+	}
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		e = time.Now().Add(d)
-	}
-	item := Item{
-		Object:     	x,
-		Expiration: 	e,
-		Key : 	   	k,
-	}
-	//if an item with the same key exists in the cache, remove it from the bst
-	old, found := c.items[k]
-	if found {
-		c.sortedItems.Delete(old)
-		c.sortedItems.InsertNoReplace(item)
-	}
+		item.Expiration = time.Now().Add(d)
+		//if an item with the same key exists in the cache, remove it from the bst
+		old, found := c.items[k]
+		if found {
+			c.sortedItems.Delete(old)
+			c.sortedItems.InsertNoReplace(item)
+		}		
+	} else {
+		item.Expiration = emptyTime
+	}		
 	c.items[k] = item
 }
 
@@ -144,6 +144,9 @@ func (c *cache) Increment(k string, n int64) error {
 		c.mu.Unlock()
 		return fmt.Errorf("Item %s not found", k)
 	}
+	if v.Expiration != emptyTime {
+		c.sortedItems.Delete(v)
+	}
 	switch v.Object.(type) {
 	case int:
 		v.Object = v.Object.(int) + int(n)
@@ -176,6 +179,9 @@ func (c *cache) Increment(k string, n int64) error {
 		return fmt.Errorf("The value for %s is not an integer", k)
 	}
 	c.items[k] = v
+	if v.Expiration != emptyTime {
+		c.sortedItems.InsertNoReplace(v)
+	}
 	c.mu.Unlock()
 	return nil
 }
@@ -875,27 +881,25 @@ func (c *cache) delete(k string) (interface{}, bool) {
 	return nil, false
 }
 
-type keyAndValue struct {
-	key   string
-	value interface{}
-}
-
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
-	var evictedItems []keyAndValue
+	var evictedItems []Item
 	c.mu.Lock()
-	for k, v := range c.items {
-		if v.Expired() {
-			ov, evicted := c.delete(k)
-			if evicted {
-				evictedItems = append(evictedItems, keyAndValue{k, ov})
-			}
-		}
-	}
-	c.mu.Unlock()
+	c.sortedItems.DescendLessOrEqual(Item{Expiration: time.Now()}, func(i llrb.Item) bool {
+		v := i.(Item)
+		c.delete(v.Key)
+		evictedItems = append(evictedItems, v)
+		return true
+	})
 	for _, v := range evictedItems {
-		c.onEvicted(v.key, v.value)
+		c.sortedItems.Delete(v)		
 	}
+	c.mu.Unlock()	
+	for _, v := range evictedItems {
+		if c.onEvicted != nil {
+			c.onEvicted(v.Key, v.Object)
+		}		
+	}	
 }
 
 // Sets an (optional) function that is called with the key and value when an
