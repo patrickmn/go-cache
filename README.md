@@ -15,13 +15,13 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 
 ### Installation
 
-`go get github.com/pmylund/go-cache`
+`go get github.com/patrickmn/go-cache`
 
 ### Usage
 
 	import (
 		"fmt"
-		"github.com/pmylund/go-cache"
+		"github.com/patrickmn/go-cache"
 		"time"
 	)
 
