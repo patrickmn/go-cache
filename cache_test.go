@@ -1682,26 +1682,3 @@ func benchmarkLargeCache(b *testing.B, nano int) {
 	}
 }
 
-/*
-func BenchmarkLargeCache(b *testing.B) {
-	b.StopTimer()
-	tc := New(time.Second, 10*time.Millisecond)
-	end := time.Now().Add(tc.defaultExpiration)
-	var i int
-	for time.Now().Before(end) {
-		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
-		i++
-	}
-	
-	for i := 0; i < 1000000; i++ {
-		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
-	}
-	
-	tc.DeleteExpired()
-	b.Logf("Cache size: %d", tc.ItemCount())
-	b.StartTimer()
-	for i := 1000000; i <1000000 + b.N; i++ {
-		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
-	}
-}
-*/
