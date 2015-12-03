@@ -19,7 +19,6 @@ type Item struct {
 }
 
 func (item Item) Less(than llrb.Item) bool {
-	//return item.Expiration.Before(than.(Item).Expiration)
 	return item.Expiration < than.(Item).Expiration 
 }
 
@@ -76,10 +75,8 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	}
 	if d > 0 {
 		item.Expiration = time.Now().Add(d).UnixNano()
-		//if an item with the same key exists in the cache, remove it from the bst
-		old, found := c.items[k]
-		if found {
-			c.sortedItems.Delete(old)
+		_, found := c.items[k]	
+		if !found {
 			c.sortedItems.InsertNoReplace(item)
 		}		
 	} 	
@@ -162,9 +159,6 @@ func (c *cache) Increment(k string, n int64) error {
 		c.mu.Unlock()
 		return fmt.Errorf("Item %s not found", k)
 	}
-	if v.Expiration != 0 {
-		c.sortedItems.Delete(v)
-	}
 	switch v.Object.(type) {
 	case int:
 		v.Object = v.Object.(int) + int(n)
@@ -197,9 +191,6 @@ func (c *cache) Increment(k string, n int64) error {
 		return fmt.Errorf("The value for %s is not an integer", k)
 	}
 	c.items[k] = v
-	if v.Expiration != 0 {
-		c.sortedItems.InsertNoReplace(v)
-	}
 	c.mu.Unlock()
 	return nil
 }
