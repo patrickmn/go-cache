@@ -13,13 +13,13 @@ import (
 
 
 type Item struct {
-	Object     	interface{}
-	Expiration 	int64
+	Object     interface{}
+	Expiration int64
 }
 
 type Node struct {
-	Expiration 	int64
-	Key 		   	string
+	Expiration int64
+	Key        string
 }
 
 func (node Node) Less(than llrb.Item) bool {
@@ -50,12 +50,12 @@ type Cache struct {
 }
 
 type cache struct {
-	defaultExpiration 	time.Duration
-	items           		map[string]Item
-	mu              		sync.RWMutex
-	onEvicted       		func(string, interface{})
-	janitor      		*janitor
-	sortedItems			*llrb.LLRB
+	defaultExpiration time.Duration
+	items             map[string]Item
+	mu                sync.RWMutex
+	onEvicted         func(string, interface{})
+	janitor           *janitor
+	sortedItems       *llrb.LLRB
 }
 
 // Add an item to the cache, replacing any existing item. If the duration is 0
