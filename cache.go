@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-
 type Item struct {
 	Object     interface{}
 	Expiration int64
@@ -25,7 +24,6 @@ type Node struct {
 func (node Node) Less(than llrb.Item) bool {
 	return node.Expiration < than.(Node).Expiration 
 }
-
 
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
@@ -907,13 +905,10 @@ func (c *cache) delete(k string) (interface{}, bool) {
 		c.deleteFromBst(Node{Expiration: v.Expiration, Key: k})
 		if c.onEvicted != nil {
 			return v.Object, true
-		} else {
-			return nil, false
 		}
 	}
 	return nil, false
 }
-
 
 type keyAndValue struct {
 	key   string
@@ -947,8 +942,6 @@ func (c *cache) DeleteExpired() {
 		}
 	}	
 }
-
-
 
 // Sets an (optional) function that is called with the key and value when an
 // item is evicted from the cache. (Including when it is deleted manually, but
@@ -1015,10 +1008,8 @@ func (c *cache) Load(r io.Reader) error {
 				c.items[k] = v
 				if !found {
 					c.sortedItems.InsertNoReplace(Node{Expiration: v.Expiration, Key: k})
-				}
-				
-			}
-	
+				}				
+			}	
 		}
 	}
 	return err
