@@ -1680,5 +1680,13 @@ func benchmarkLargeCache(b *testing.B, nano int) {
 	for i := 0; i < b.N; i++ {
 		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
 	}
+	b.StopTimer()
+	tc.DeleteExpired()
+	now := time.Now().UnixNano()
+	for _, item := range tc.Items() {
+		if item.Expiration < now {
+			b.Fatalf("some items have not been correctly evicted")
+		}
+	}
 }
 

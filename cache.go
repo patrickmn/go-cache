@@ -15,11 +15,15 @@ import (
 type Item struct {
 	Object     	interface{}
 	Expiration 	int64
+}
+
+type Node struct {
+	Expiration 	int64
 	Key 		   	string
 }
 
-func (item Item) Less(than llrb.Item) bool {
-	return item.Expiration < than.(Item).Expiration 
+func (node Node) Less(than llrb.Item) bool {
+	return node.Expiration < than.(Node).Expiration 
 }
 
 
@@ -66,21 +70,39 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
-	item := Item{
-		Object:     	x,
-		Key : 	   	k,
-	}
+	item := Item{Object: x,}
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
 		item.Expiration = time.Now().Add(d).UnixNano()
-		_, found := c.items[k]	
-		if !found {
-			c.sortedItems.InsertNoReplace(item)
+		old, found := c.items[k]	
+		if found && old.Expiration != item.Expiration{
+			c.deleteFromBst(Node{Expiration: old.Expiration, Key: k})
+			c.sortedItems.InsertNoReplace(Node{Expiration: item.Expiration, Key: k})			
+		} else if !found {
+			c.sortedItems.InsertNoReplace(Node{Expiration: item.Expiration, Key: k})
 		}		
 	} 	
 	c.items[k] = item
+}
+
+func (c *cache) deleteFromBst (node Node) {
+	//delete nodes from the tree with the same expiration 
+	//until the required one is found
+	var toReinsert []Node
+	for del := c.sortedItems.Delete(node); del != nil; {
+		delNode := del.(Node)		
+		if delNode.Key == node.Key {
+			break
+		} else {
+			toReinsert = append (toReinsert, delNode)
+		}
+	}
+	//reinsert the nodes in the tree, with modified expiration
+	for _, delNode := range toReinsert {
+		c.sortedItems.InsertNoReplace(delNode)
+	}
 }
 
 
@@ -880,34 +902,49 @@ func (c *cache) Delete(k string) {
 }
 
 func (c *cache) delete(k string) (interface{}, bool) {
-	if c.onEvicted != nil {
-		if v, found := c.items[k]; found {
-			delete(c.items, k)
+	if v, found := c.items[k]; found {
+		delete(c.items, k)
+		c.deleteFromBst(Node{Expiration: v.Expiration, Key: k})
+		if c.onEvicted != nil {
 			return v.Object, true
+		} else {
+			return nil, false
 		}
 	}
-	delete(c.items, k)
 	return nil, false
+}
+
+
+type keyAndValue struct {
+	key   string
+	value interface{}
 }
 
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
-	var evictedItems []Item
+	var evictedNodes []Node
+	var evictedItems []keyAndValue
 	c.mu.Lock()
-	c.sortedItems.DescendLessOrEqual(Item{Expiration: time.Now().UnixNano()}, func(i llrb.Item) bool {
-		v := i.(Item)
-		c.delete(v.Key)
-		evictedItems = append(evictedItems, v)	
+	c.sortedItems.DescendLessOrEqual(Node{Expiration: time.Now().UnixNano()}, func(i llrb.Item) bool {
+		v := i.(Node)
+		k := v.Key
+		item, found := c.items[k]
+		if !found {
+			panic("Item in tree but not in map!!")
+		}
+		delete(c.items, k)
+		evictedItems = append(evictedItems, keyAndValue{k, item.Object})	
+		evictedNodes = append(evictedNodes, v)	
 		return true
 	})
-	for _, v := range evictedItems {
+	for _, v := range evictedNodes {
 		c.sortedItems.Delete(v)		
 	}
 	c.mu.Unlock()	
-	for _, v := range evictedItems {
-		if c.onEvicted != nil {
-			c.onEvicted(v.Key, v.Object)
-		}		
+	if c.onEvicted != nil {
+		for _, n := range evictedItems {		
+			c.onEvicted(n.key, n.value)				
+		}
 	}	
 }
 
@@ -976,10 +1013,10 @@ func (c *cache) Load(r io.Reader) error {
 			ov, found := c.items[k]
 			if !found || ov.Expired() {
 				c.items[k] = v
-				if found {
-					c.sortedItems.Delete(ov)
+				if !found {
+					c.sortedItems.InsertNoReplace(Node{Expiration: v.Expiration, Key: k})
 				}
-				c.sortedItems.InsertNoReplace(v)
+				
 			}
 	
 		}
@@ -1073,9 +1110,8 @@ func newCache(de time.Duration, m map[string]Item) *cache {
 		items:             m,
 	}
 	c.sortedItems = llrb.New()
-	//we can probably do bulk insertion here to speed it up
-	for _, item := range m {
-		c.sortedItems.InsertNoReplace(item)
+	for k, item := range m {
+		c.sortedItems.InsertNoReplace(Node{Key: k, Expiration: item.Expiration})
 	}
 	return c
 }
