@@ -103,7 +103,6 @@ func (c *cache) deleteFromBst (node Node) {
 	}
 }
 
-
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
 func (c *cache) Add(k string, x interface{}, d time.Duration) error {
