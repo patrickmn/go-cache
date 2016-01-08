@@ -137,7 +137,6 @@ func (c *cache) get(k string) (interface{}, bool) {
 	// "Inlining" of Expired
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
-			c.mu.RUnlock()
 			return nil, false
 		}
 	}
