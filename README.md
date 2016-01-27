@@ -19,6 +19,7 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 
 ### Usage
 
+```go
 	import (
 		"fmt"
 		"github.com/patrickmn/go-cache"
@@ -99,7 +100,7 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 		// 2
 
 	}
-
+```
 
 ### Reference
 
