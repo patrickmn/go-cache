@@ -149,6 +149,38 @@ func (c *cache) get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+func (c *cache) getWithExpiration(k string) (interface{}, time.Time, bool) {
+	item, found := c.items[k]
+	if !found {
+		return nil, time.Time{}, false
+	}
+	// "Inlining" of Expired
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			return nil, time.Time{}, false
+		}
+	}
+	return item.Object, time.Unix(0, item.Expiration), true
+}
+
+// SetTransaction given a values current state and expiration and whether it was found in the cache
+// atomically update and return the value and the new expiration time
+type SetTransaction func(interface{}, time.Time, bool) (interface{}, time.Duration)
+
+// GetAndSet allows retrieval of a cache key and setting the value based on a setFn in a synchronized atomic manner
+func (c *cache) GetAndSet(k string, setFn SetTransaction) (interface{}, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	v, expiration, found := c.getWithExpiration(k)
+
+	newV, duration := setFn(v, expiration, found)
+
+	c.set(k, newV, duration)
+
+	return newV, found
+}
+
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
 // uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
 // item's value is not an integer, if it was not found, or if it is not

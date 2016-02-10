@@ -68,6 +68,63 @@ func TestCache(t *testing.T) {
 	}
 }
 
+func TestGetAndSet(t *testing.T) {
+	var found bool
+
+	tc := New(50*time.Millisecond, 1*time.Millisecond)
+
+	setHandler := func(v interface{}, expiration time.Time, found bool) (interface{}, time.Duration) {
+		// Cache miss so set to 1 with default expiration
+		if !found {
+			return int64(1), DefaultExpiration
+		}
+
+		return v.(int64) + 1, time.Now().Sub(expiration)
+	}
+
+	x, found := tc.GetAndSet("a", func(v interface{}, expiration time.Time, found bool) (interface{}, time.Duration) {
+		if found {
+			t.Error("a was found while GetAndSet")
+		}
+		if v != nil {
+			t.Error("expected key[a] to be nil")
+		}
+		if !expiration.IsZero() {
+			t.Error("expected expiration to not exist")
+		}
+		return setHandler(v, expiration, found)
+	})
+
+	if x != int64(1) {
+		t.Errorf("Expected x = 1 after GetAndSet but was %d", x)
+	}
+
+	if found {
+		t.Errorf("Expected found[false] on initial GetAndSet but was %t", found)
+	}
+
+	x, found = tc.GetAndSet("a", func(v interface{}, expiration time.Time, found bool) (interface{}, time.Duration) {
+		if !found {
+			t.Error("a was not found in second GetAndSet")
+		}
+		if v == nil {
+			t.Error("expected key[a] to not be nil")
+		}
+		if expiration.IsZero() {
+			t.Error("expected expiration to exist")
+		}
+		return setHandler(v, expiration, found)
+	})
+
+	if x != int64(2) {
+		t.Errorf("Expected x = 2 after GetAndSet but was %d", x)
+	}
+
+	if !found {
+		t.Errorf("Expected found[true] on second GetAndSet was %t", found)
+	}
+}
+
 func TestCacheTimes(t *testing.T) {
 	var found bool
 
@@ -1459,7 +1516,7 @@ func BenchmarkRWMutexMapGet(b *testing.B) {
 
 func BenchmarkRWMutexInterfaceMapGetStruct(b *testing.B) {
 	b.StopTimer()
-	s := struct{name string}{name: "foo"}
+	s := struct{ name string }{name: "foo"}
 	m := map[interface{}]string{
 		s: "bar",
 	}
