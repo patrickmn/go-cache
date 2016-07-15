@@ -129,6 +129,29 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+// get the item from cache and then reset the expiration date, this means
+// you will need a full lock instead of a rlock
+func (c *cache) GetR(k string, d time.Duration) (interface{}, bool) {
+	var e int64
+	if d > 0 {
+		e = time.Now().Add(d).UnixNano()
+	}
+
+	c.mu.Lock()
+
+	if item, found := c.get(k); found {
+		c.items[k] = Item{
+			Object:     item,
+			Expiration: e,
+		}
+		c.mu.Unlock()
+		return item, found
+	}
+
+	c.mu.Unlock()
+	return nil, false
+}
+
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
 	if !found {

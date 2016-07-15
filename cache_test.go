@@ -76,6 +76,7 @@ func TestCacheTimes(t *testing.T) {
 	tc.Set("b", 2, NoExpiration)
 	tc.Set("c", 3, 20*time.Millisecond)
 	tc.Set("d", 4, 70*time.Millisecond)
+	tc.Set("e", 5, 100*time.Millisecond)
 
 	<-time.After(25 * time.Millisecond)
 	_, found = tc.Get("c")
@@ -103,6 +104,17 @@ func TestCacheTimes(t *testing.T) {
 	_, found = tc.Get("d")
 	if found {
 		t.Error("Found d when it should have been automatically deleted (later than the default)")
+	}
+
+	_, found = tc.GetR("e", 50 * time.Millisecond)
+	if !found {
+		t.Error("Should have found e because enough time hasn't passed")
+	}
+
+	<-time.After(35 * time.Millisecond)
+	_, found = tc.Get("e")
+	if !found {
+		t.Error("Should have still found e because it was reset")
 	}
 }
 
