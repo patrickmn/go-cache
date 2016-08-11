@@ -1,4 +1,16 @@
-package cache
+package main
+
+import (
+	"flag"
+	"fmt"
+	"go/parser"
+	"go/token"
+	"os"
+	"text/template"
+)
+
+var cachemapTemplate = `// Automatically generated file; DO NOT EDIT
+package {{ .PackageName }}
 
 import (
 	"fmt"
@@ -8,7 +20,7 @@ import (
 )
 
 type Item struct {
-	Object     ValueType
+	Object     {{ .ValueType }}
 	Expiration int64
 }
 
@@ -24,28 +36,27 @@ const (
 	// For use with functions that take no expiration time.
 	NoExpiration time.Duration = -1
 	// For use with functions that take an expiration time. Equivalent to
-	// passing in the same expiration duration as was given to New() or
-	// NewFrom() when the cache was created (e.g. 5 minutes.)
+	// passing in the same expiration duration as was given to {{ .Cache }}New().
 	DefaultExpiration time.Duration = 0
 )
 
-type Cache struct {
+type {{ .Cache }} struct {
 	*cache
-	// If this is confusing, see the comment at the bottom of New()
+	// If this is confusing, see the comment at the bottom of {{ .Cache }}New()
 }
 
 type cache struct {
 	defaultExpiration time.Duration
 	items             map[string]Item
 	mu                sync.RWMutex
-	onEvicted         func(string, *ValueType)
+	onEvicted         func(string, *{{ .ValueType }})
 	janitor           *janitor
 }
 
 // Add an item to the cache, replacing any existing item. If the duration is 0
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
-func (c *cache) Set(k string, x ValueType, d time.Duration) {
+func (c *cache) Set(k string, x {{ .ValueType }}, d time.Duration) {
 	// "Inlining" of set
 	var e int64
 	if d == DefaultExpiration {
@@ -64,7 +75,7 @@ func (c *cache) Set(k string, x ValueType, d time.Duration) {
 	c.mu.Unlock()
 }
 
-func (c *cache) set(k string, x ValueType, d time.Duration) {
+func (c *cache) set(k string, x {{ .ValueType }}, d time.Duration) {
 	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
@@ -80,7 +91,7 @@ func (c *cache) set(k string, x ValueType, d time.Duration) {
 
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
-func (c *cache) Add(k string, x ValueType, d time.Duration) error {
+func (c *cache) Add(k string, x {{ .ValueType }}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
 	if found {
@@ -94,7 +105,7 @@ func (c *cache) Add(k string, x ValueType, d time.Duration) error {
 
 // Set a new value for the cache key only if it already exists, and the existing
 // item hasn't expired. Returns an error otherwise.
-func (c *cache) Replace(k string, x ValueType, d time.Duration) error {
+func (c *cache) Replace(k string, x {{ .ValueType }}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
 	if !found {
@@ -108,7 +119,7 @@ func (c *cache) Replace(k string, x ValueType, d time.Duration) error {
 
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
-func (c *cache) Get(k string) *ValueType {
+func (c *cache) Get(k string) *{{ .ValueType }} {
 	c.mu.RLock()
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
@@ -126,7 +137,7 @@ func (c *cache) Get(k string) *ValueType {
 	return &item.Object
 }
 
-func (c *cache) get(k string) (*ValueType, bool) {
+func (c *cache) get(k string) (*{{ .ValueType }}, bool) {
 	item, found := c.items[k]
 	if !found {
 		return nil, false
@@ -172,7 +183,7 @@ func (c *cache) Delete(k string) {
 	}
 }
 
-func (c *cache) delete(k string) (*ValueType, bool) {
+func (c *cache) delete(k string) (*{{ .ValueType }}, bool) {
 	if c.onEvicted != nil {
 		if v, found := c.items[k]; found {
 			delete(c.items, k)
@@ -185,7 +196,7 @@ func (c *cache) delete(k string) (*ValueType, bool) {
 
 type keyAndValue struct {
 	key   string
-	value *ValueType
+	value *{{ .ValueType }}
 }
 
 // Delete all expired items from the cache.
@@ -211,7 +222,7 @@ func (c *cache) DeleteExpired() {
 // Sets an (optional) function that is called with the key and value when an
 // item is evicted from the cache. (Including when it is deleted manually, but
 // not when it is overwritten.) Set to nil to disable.
-func (c *cache) OnEvicted(f func(string, *ValueType)) {
+func (c *cache) OnEvicted(f func(string, *{{ .ValueType }})) {
 	c.mu.Lock()
 	c.onEvicted = f
 	c.mu.Unlock()
@@ -252,7 +263,7 @@ func (j *janitor) Run(c *cache) {
 	}
 }
 
-func stopJanitor(c *Cache) {
+func stopJanitor(c *{{ .Cache }}) {
 	c.janitor.stop <- true
 }
 
@@ -275,14 +286,14 @@ func newCache(de time.Duration, m map[string]Item) *cache {
 	return c
 }
 
-func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) *Cache {
+func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) *{{ .Cache }} {
 	c := newCache(de, m)
 	// This trick ensures that the janitor goroutine (which--granted it
 	// was enabled--is running DeleteExpired on c forever) does not keep
 	// the returned C object from being garbage collected. When it is
 	// garbage collected, the finalizer stops the janitor goroutine, after
 	// which c can be collected.
-	C := &Cache{c}
+	C := &{{ .Cache }}{c}
 	if ci > 0 {
 		runJanitor(c, ci)
 		// 如果C被回收了,但是c不会,因为stopJanitor是一个一直运行的
@@ -298,7 +309,53 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) 
 // the items in the cache never expire (by default), and must be deleted
 // manually. If the cleanup interval is less than one, expired items are not
 // deleted from the cache before calling c.DeleteExpired().
-func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
+func {{ .Cache }}New(defaultExpiration, cleanupInterval time.Duration) *{{ .Cache }}{
 	items := make(map[string]Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
+}`
+
+func fatal(v ...interface{}) {
+	fmt.Fprintln(os.Stderr, v...)
+	os.Exit(1)
+}
+
+func main() {
+	keyType := flag.String("k", "", "key type")
+	valueType := flag.String("v", "", "value type")
+	flag.Parse()
+	if *keyType == "" {
+		fatal("key empty")
+	}
+	if *valueType == "" {
+		fatal("value empty")
+	}
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, ".", nil, parser.ParseComments)
+	if err != nil {
+		fatal(err)
+	}
+	var packageName string
+	for name := range pkgs {
+		packageName = name
+	}
+	f, err := os.OpenFile(fmt.Sprintf("%s2%s_cachemap.go", *keyType, *valueType), os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		fatal(err)
+	}
+	defer f.Close()
+	tpl, err := template.New("cachemap").Parse(cachemapTemplate)
+	if err != nil {
+		fatal(err)
+	}
+	err = tpl.Execute(
+		f,
+		map[string]string{
+			"ValueType":   *valueType,
+			"PackageName": packageName,
+			"Cache":       fmt.Sprintf("String2%sCache", *valueType),
+		},
+	)
+	if err != nil {
+		fatal(err)
+	}
 }
