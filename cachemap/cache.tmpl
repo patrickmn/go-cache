@@ -182,8 +182,7 @@ func (c *cache) delete(k string) ({{.ValueType}}, bool) {
 		delete(c.items, k)
 		return v.Object, true
 	}
-	//TODO: zeroValue
-	return 0, false
+	return {{ .ZeroValue }}, false
 }
 
 func (c *cache) deleteFast(k string) {

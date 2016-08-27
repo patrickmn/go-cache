@@ -198,21 +198,22 @@ func TestFlush(t *testing.T) {
 }
 
 func TestOnEvicted(t *testing.T) {
-	tc := New_tpl(Attr_tpl{
+	works := false
+	var tc *Cache_tpl
+	tc = New_tpl(Attr_tpl{
 		DefaultExpiration:      DefaultExpiration,
 		DefaultCleanupInterval: 0,
+		OnEvicted: func(k string, v ValueType_tpl) {
+			if k == "foo" && v == 3 {
+				works = true
+			}
+			tc.Set("bar", 4, DefaultExpiration)
+		},
 	})
 	tc.Set("foo", 3, DefaultExpiration)
-	if tc.onEvicted != nil {
-		t.Fatal("tc.onEvicted is not nil")
+	if tc.onEvicted == nil {
+		t.Fatal("tc.onEvicted is nil")
 	}
-	works := false
-	tc.OnEvicted(func(k string, v ValueType_tpl) {
-		if k == "foo" && v == 3 {
-			works = true
-		}
-		tc.Set("bar", 4, DefaultExpiration)
-	})
 	tc.Delete("foo")
 	x, _ := tc.Get("bar")
 	if !works {
