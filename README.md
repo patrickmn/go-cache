@@ -1,6 +1,9 @@
-# go-cache
+[![Build Status](https://travis-ci.org/ggaaooppeenngg/cachemap.svg?branch=master)](https://travis-ci.org/ggaaooppeenngg/cachemap)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ggaaooppeenngg/cachemap)](https://goreportcard.com/report/github.com/ggaaooppeenngg/cachemap)
+[![GoDoc](https://godoc.org/github.com/ggaaooppeenngg/cachemap?status.svg)](https://godoc.org/github.com/ggaaooppeenngg/cachemap)
+# cachemap
 
-go-cache is an in-memory key:value store/cache similar to memcached that is
+cachemap is an in-memory key:value store/cache similar to memcached that is
 suitable for applications running on a single machine. Its major advantage is
 that, being essentially a thread-safe `map[string]interface{}` with expiration
 times, it doesn't need to serialize or transmit its contents over the network.
@@ -8,21 +11,21 @@ times, it doesn't need to serialize or transmit its contents over the network.
 Any object can be stored, for a given duration or forever, and the cache can be
 safely used by multiple goroutines.
 
-Although go-cache isn't meant to be used as a persistent datastore, the entire
+Although cachemap isn't meant to be used as a persistent datastore, the entire
 cache can be saved to and loaded from a file (using `c.Items()` to retrieve the
 items map to serialize, and `NewFrom()` to create a cache from a deserialized
 one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats.)
 
 ### Installation
 
-`go get github.com/patrickmn/go-cache`
+`go get github.com/ggaaooppeenngg/cachemap`
 
 ### Usage
 
 ```go
 	import (
 		"fmt"
-		"github.com/patrickmn/go-cache"
+		"github.com/patrickmn/cachemap"
 		"time"
 	)
 
@@ -101,10 +104,6 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 
 	}
 ```
-
-### Reference
-
-`godoc` or [http://godoc.org/github.com/patrickmn/go-cache](http://godoc.org/github.com/patrickmn/go-cache)
 
 ### Benchmark
 
