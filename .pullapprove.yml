@@ -1,0 +1,9 @@
+approve_by_comment: true
+approve_regex: ^LGTM
+reject_regex: ^Rejected
+reset_on_push: true
+reviewers:
+  members:
+    - ggaaooppeenngg
+  name: pullapprove
+  required: 1

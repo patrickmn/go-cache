@@ -1,6 +1,9 @@
-# go-cache
+[![Build Status](https://travis-ci.org/ggaaooppeenngg/cachemap.svg?branch=master)](https://travis-ci.org/ggaaooppeenngg/cachemap)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ggaaooppeenngg/cachemap)](https://goreportcard.com/report/github.com/ggaaooppeenngg/cachemap)
+[![GoDoc](https://godoc.org/github.com/ggaaooppeenngg/cachemap?status.svg)](https://godoc.org/github.com/ggaaooppeenngg/cachemap)
+# cachemap
 
-go-cache is an in-memory key:value store/cache similar to memcached that is
+cachemap is an in-memory key:value store/cache similar to memcached that is
 suitable for applications running on a single machine. Its major advantage is
 that, being essentially a thread-safe `map[string]interface{}` with expiration
 times, it doesn't need to serialize or transmit its contents over the network.
@@ -8,21 +11,21 @@ times, it doesn't need to serialize or transmit its contents over the network.
 Any object can be stored, for a given duration or forever, and the cache can be
 safely used by multiple goroutines.
 
-Although go-cache isn't meant to be used as a persistent datastore, the entire
+Although cachemap isn't meant to be used as a persistent datastore, the entire
 cache can be saved to and loaded from a file (using `c.Items()` to retrieve the
 items map to serialize, and `NewFrom()` to create a cache from a deserialized
 one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats.)
 
 ### Installation
 
-`go get github.com/patrickmn/go-cache`
+`go get github.com/ggaaooppeenngg/cachemap`
 
 ### Usage
 
 ```go
 	import (
 		"fmt"
-		"github.com/patrickmn/go-cache"
+		"github.com/patrickmn/cachemap"
 		"time"
 	)
 
@@ -102,6 +105,30 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 	}
 ```
 
-### Reference
+### Benchmark
 
-`godoc` or [http://godoc.org/github.com/patrickmn/go-cache](http://godoc.org/github.com/patrickmn/go-cache)
+| benchmark\package                                   | go-cache              | cachemap             |
+|-----------------------------------------------------|-----------------------|----------------------|
+| BenchmarkCacheGetExpiring-v                         | 30000000,46.3 ns/op   | 20000000,43.4 ns/op  |
+| BenchmarkCacheGetNotExpiring-v                      | 50000000,29.6 ns/op   | 50000000,29.6 ns/op  |
+| BenchmarkRWMutexMapGet-x                            | 50000000,26.7 ns/op   | 50000000,26.6 ns/op  |
+| BenchmarkRWMutexInterfaceMapGetStruct-x             | 20000000,75.1 ns/op   | 20000000,66.1 ns/op  |
+| BenchmarkRWMutexInterfaceMapGetString-x             | 20000000,75.3 ns/op   | 20000000,67.6 ns/op  |
+| BenchmarkCacheGetConcurrentExpiring-v               | 20000000,67.8 ns/op   | 20000000,68.9 ns/op  |
+| BenchmarkCacheGetConcurrentNotExpiring-v            | 20000000,69.2 ns/op   | 20000000,68.6 ns/op  |
+| BenchmarkRWMutexMapGetConcurrent-x                  | 30000000,57.4 ns/op   | 20000000,64.7 ns/op  |
+| BenchmarkCacheGetManyConcurrentExpiring-v           | 100000000,68.0 ns/op  | 100000000,66.7 ns/op |
+| BenchmarkCacheGetManyConcurrentNotExpiring-v        | 2000000000,68.3 ns/op | 20000000,69.3 ns/op  |
+| BenchmarkCacheSetExpiring-4                         | 10000000,173 ns/op    | 20000000,91.4 ns/op  |
+| BenchmarkCacheSetNotExpiring-4                      | 10000000,123 ns/op    | 20000000,100 ns/op   |
+| BenchmarkRWMutexMapSet-4                            | 20000000,88.5 ns/op   | 20000000,74.5 ns/op  |
+| BenchmarkCacheSetDelete-4                           | 5000000,257 ns/op     | 10000000,151 ns/op   |
+| BenchmarkRWMutexMapSetDelete-4                      | 10000000,180 ns/op    | 10000000,154 ns/op   |
+| BenchmarkCacheSetDeleteSingleLock-4                 | 10000000,211 ns/op    | 20000000,118 ns/op   |
+| BenchmarkRWMutexMapSetDeleteSingleLock-4            | 10000000,142 ns/op    | 20000000,118 ns/op   |
+| BenchmarkIncrementInt-4                             | 10000000,167 ns/op    |                      |
+| BenchmarkDeleteExpiredLoop-4                        | 500,2584384 ns/op     | 1000,2173019 ns/op   |
+| BenchmarkShardedCacheGetExpiring-4                  | 20000000,79.5 ns/op   | 20000000,67.9 ns/op  |
+| BenchmarkShardedCacheGetNotExpiring-4               | 30000000,59.3 ns/op   | 20000000,49.9 ns/op  |
+| BenchmarkShardedCacheGetManyConcurrentExpiring-4    | 2000000000,52.4 ns/op | 10000000,75.8 ns/op  |
+| BenchmarkShardedCacheGetManyConcurrentNotExpiring-4 | 100000000,68.2 ns/op  | 20000000,75.8 ns/op  |

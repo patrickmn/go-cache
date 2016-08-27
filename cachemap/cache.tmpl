@@ -1,6 +1,4 @@
-package cache
-
-// The package is used as a template, don't use it directly!
+package {{.PackageName}}
 
 import (
 	"fmt"
@@ -10,20 +8,16 @@ import (
 )
 
 // Attr is cachmap attribute
-type Attr_tpl struct {
-	// An (optional) function that is called with the key and value when an
-	// item is evicted from the cache. (Including when it is deleted manually, but
-	// not when it is overwritten.) Set to nil to disable.
-	OnEvicted func(k string, v ValueType_tpl)
-
-	DefaultCleanupInterval time.Duration // default clean interval
-	DefaultExpiration      time.Duration // default expiration duration
-	Size                   int64         // initial size of map
+type {{.ValueType}}CacheAttr struct {
+	OnEvicted              func(k string, v {{.ValueType}}) // called when k evicted if set
+	DefaultCleanupInterval time.Duration                    // default clean interval
+	DefaultExpiration      time.Duration                    // default expiration duration
+	Size                   int64                            // inital size of map
 }
 
 // Item struct
 type Item struct {
-	Object     ValueType_tpl
+	Object     {{.ValueType}}
 	Expiration int64
 }
 
@@ -43,7 +37,7 @@ const (
 )
 
 // Cache struct
-type Cache_tpl struct {
+type {{.ValueType}}Cache struct {
 	*cache
 	// If this is confusing, see the comment at the bottom of New()
 }
@@ -52,14 +46,14 @@ type cache struct {
 	defaultExpiration time.Duration
 	items             map[string]Item
 	mu                sync.RWMutex
-	onEvicted         func(string, ValueType_tpl)
+	onEvicted         func(string, {{.ValueType}})
 	janitor           *janitor
 }
 
 // Add an item to the cache, replacing any existing item. If the duration is 0
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
-func (c *cache) Set(k string, x ValueType_tpl, d time.Duration) {
+func (c *cache) Set(k string, x {{.ValueType}}, d time.Duration) {
 	// "Inlining" of set
 	var e int64
 	if d == DefaultExpiration {
@@ -78,7 +72,7 @@ func (c *cache) Set(k string, x ValueType_tpl, d time.Duration) {
 	c.mu.Unlock()
 }
 
-func (c *cache) set(k string, x ValueType_tpl, d time.Duration) {
+func (c *cache) set(k string, x {{.ValueType}}, d time.Duration) {
 	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
@@ -94,7 +88,7 @@ func (c *cache) set(k string, x ValueType_tpl, d time.Duration) {
 
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
-func (c *cache) Add(k string, x ValueType_tpl, d time.Duration) error {
+func (c *cache) Add(k string, x {{.ValueType}}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
 	if found {
@@ -108,7 +102,7 @@ func (c *cache) Add(k string, x ValueType_tpl, d time.Duration) error {
 
 // Set a new value for the cache key only if it already exists, and the existing
 // item hasn't expired. Returns an error otherwise.
-func (c *cache) Replace(k string, x ValueType_tpl, d time.Duration) error {
+func (c *cache) Replace(k string, x {{.ValueType}}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
 	if !found {
@@ -122,20 +116,20 @@ func (c *cache) Replace(k string, x ValueType_tpl, d time.Duration) error {
 
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
-func (c *cache) Get(k string) (ValueType_tpl, bool) {
+func (c *cache) Get(k string) ({{.ValueType}}, bool) {
 	c.mu.RLock()
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	// TODO: inline time.Now implementation
 	if !found || item.Expiration > 0 && time.Now().UnixNano() > item.Expiration {
 		c.mu.RUnlock()
-		return ValueType_tpl(0), false
+		return {{.ValueType}}(0), false
 	}
 	c.mu.RUnlock()
 	return item.Object, true
 }
 
-func (c *cache) get(k string) (*ValueType_tpl, bool) {
+func (c *cache) get(k string) (*{{.ValueType}}, bool) {
 	item, found := c.items[k]
 	if !found || item.Expiration > 0 && time.Now().UnixNano() > item.Expiration {
 		return nil, false
@@ -183,13 +177,12 @@ func (c *cache) Delete(k string) {
 	}
 }
 
-func (c *cache) delete(k string) (ValueType_tpl, bool) {
+func (c *cache) delete(k string) ({{.ValueType}}, bool) {
 	if v, found := c.items[k]; found {
 		delete(c.items, k)
 		return v.Object, true
 	}
-	//TODO: zeroValue
-	return 0, false
+	return {{ .ZeroValue }}, false
 }
 
 func (c *cache) deleteFast(k string) {
@@ -198,7 +191,7 @@ func (c *cache) deleteFast(k string) {
 
 type keyAndValue struct {
 	key   string
-	value ValueType_tpl
+	value {{.ValueType}}
 }
 
 // Delete all expired items from the cache.
@@ -232,6 +225,16 @@ func (c *cache) DeleteExpired() {
 	for _, v := range evictedItems {
 		c.onEvicted(v.key, v.value)
 	}
+}
+
+// Sets an (optional) function that is called with the key and value when an
+// item is evicted from the cache. (Including when it is deleted manually, but
+// not when it is overwritten.) Set to nil to disable.
+// 这里加锁没有意义
+func (c *cache) OnEvicted(f func(string, {{.ValueType}})) {
+	c.mu.Lock()
+	c.onEvicted = f
+	c.mu.Unlock()
 }
 
 // Returns the number of items in the cache. This may include items that have
@@ -269,7 +272,7 @@ func (j *janitor) Run(c *cache) {
 	}
 }
 
-func stopJanitor(c *Cache_tpl) {
+func stopJanitor(c *{{.ValueType}}Cache) {
 	c.janitor.stop <- true
 }
 
@@ -292,7 +295,7 @@ func newCache(de time.Duration, m map[string]Item) *cache {
 	return c
 }
 
-func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item, onEvicted func(k string, v ValueType_tpl)) *Cache_tpl {
+func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item, onEvicted func(k string, v {{.ValueType}})) *{{.ValueType}}Cache {
 	c := newCache(de, m)
 	c.onEvicted = onEvicted
 	// This trick ensures that the janitor goroutine (which--granted it
@@ -300,7 +303,7 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item, 
 	// the returned C object from being garbage collected. When it is
 	// garbage collected, the finalizer stops the janitor goroutine, after
 	// which c can be collected.
-	C := &Cache_tpl{c}
+	C := &{{.ValueType}}Cache{c}
 	if ci > 0 {
 		runJanitor(c, ci)
 		runtime.SetFinalizer(C, stopJanitor)
@@ -314,7 +317,7 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item, 
 // and must be deleted manually. If the cleanup interval is less than one,
 // expired items are not deleted from the cache before calling c.DeleteExpired().
 //
-func New_tpl(attr Attr_tpl) *Cache_tpl {
+func New{{.ValueType}}Cache(attr {{.ValueType}}CacheAttr) *{{.ValueType}}Cache {
 	items := make(map[string]Item, attr.Size)
 	return newCacheWithJanitor(attr.DefaultExpiration, attr.DefaultCleanupInterval, items, attr.OnEvicted)
 }
