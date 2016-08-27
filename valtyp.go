@@ -1,3 +1,3 @@
 package cache
 
-type ValueType int
+type ValueType_tpl int

@@ -14,67 +14,98 @@ type TestStruct struct {
 }
 
 func TestCache(t *testing.T) {
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
 
-	a := tc.Get("a")
-	if a != nil {
+	a, found := tc.Get("a")
+	if found || a != 0 {
 		t.Error("Getting A found value that shouldn't exist:", a)
 	}
 
-	b := tc.Get("b")
-	if b != nil {
+	b, found := tc.Get("b")
+	if found || b != 0 {
 		t.Error("Getting B found value that shouldn't exist:", b)
 	}
 
-	c := tc.Get("c")
-	if c != nil {
+	c, found := tc.Get("c")
+	if found || c != 0 {
 		t.Error("Getting C found value that shouldn't exist:", c)
 	}
 
-	tc.Set("a", ValueType(1), DefaultExpiration)
+	tc.Set("a", 1, DefaultExpiration)
+	tc.Set("b", 2, DefaultExpiration)
+	tc.Set("c", 3, DefaultExpiration)
 
-	x := tc.Get("a")
-	if x == nil {
+	x, found := tc.Get("a")
+	if !found {
+		t.Error("a was not found while getting a2")
+	}
+	if x == 0 {
 		t.Error("x for a is nil")
-	} else if a2 := int(*x); a2+2 != 3 {
+	} else if a2 := x; a2+2 != 3 {
 		t.Error("a2 (which should be 1) plus 2 does not equal 3; value:", a2)
 	}
+	x, found = tc.Get("b")
+	if !found {
+		t.Error("b was not found while getting b2")
+	}
+	if x == 0 {
+		t.Error("x for b is nil")
+	} else if b2 := x; b2+2 != 4 {
+		t.Error("b2 (which should be 2) plus 2 does not equal 4; value:", b2)
+	}
+
+	x, found = tc.Get("c")
+	if !found {
+		t.Error("c was not found while getting c2")
+	}
+	if x == 0 {
+		t.Error("x for c is nil")
+	} else if c2 := x; c2+1 != 4 {
+		t.Error("c2 (which should be 3) plus 1 does not equal 4; value:", c2)
+	}
+
 }
 
 func TestCacheTimes(t *testing.T) {
-	var x *ValueType
+	var found bool
 
-	tc := New(50*time.Millisecond, 1*time.Millisecond)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      50 * time.Millisecond,
+		DefaultCleanupInterval: 1 * time.Millisecond,
+	})
 	tc.Set("a", 1, DefaultExpiration)
 	tc.Set("b", 2, NoExpiration)
 	tc.Set("c", 3, 20*time.Millisecond)
 	tc.Set("d", 4, 70*time.Millisecond)
 
 	<-time.After(25 * time.Millisecond)
-	x = tc.Get("c")
-	if x != nil {
-		t.Error("Found c when it should have been automatically deleted", *x)
+	_, found = tc.Get("c")
+	if found {
+		t.Error("Found c when it should have been automatically deleted")
 	}
 
 	<-time.After(30 * time.Millisecond)
-	x = tc.Get("a")
-	if x != nil {
-		t.Error("Found a when it should have been automatically deleted", *x)
+	_, found = tc.Get("a")
+	if found {
+		t.Error("Found a when it should have been automatically deleted")
 	}
 
-	x = tc.Get("b")
-	if x == nil {
+	_, found = tc.Get("b")
+	if !found {
 		t.Error("Did not find b even though it was set to never expire")
 	}
 
-	x = tc.Get("d")
-	if x == nil {
+	_, found = tc.Get("d")
+	if !found {
 		t.Error("Did not find d even though it was set to expire later than the default")
 	}
 
 	<-time.After(20 * time.Millisecond)
-	x = tc.Get("d")
-	if x != nil {
+	_, found = tc.Get("d")
+	if found {
 		t.Error("Found d when it should have been automatically deleted (later than the default)")
 	}
 }
@@ -84,7 +115,10 @@ func TestIncrementWithInt(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
 	err := tc.Add("foo", 1, DefaultExpiration)
 	if err != nil {
 		t.Error("Couldn't add foo even though it shouldn't exist")
@@ -96,7 +130,10 @@ func TestAdd(t *testing.T) {
 }
 
 func TestReplace(t *testing.T) {
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: -1,
+	})
 	err := tc.Replace("foo", 1, DefaultExpiration)
 	if err == nil {
 		t.Error("Replaced foo when it shouldn't exist")
@@ -107,19 +144,27 @@ func TestReplace(t *testing.T) {
 		t.Error("Couldn't replace existing key foo")
 	}
 }
-
 func TestDelete(t *testing.T) {
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
 	tc.Set("foo", 1, DefaultExpiration)
 	tc.Delete("foo")
-	x := tc.Get("foo")
-	if x != nil {
+	x, found := tc.Get("foo")
+	if found {
+		t.Error("foo was found, but it should have been deleted")
+	}
+	if x != 0 {
 		t.Error("x is not nil:", x)
 	}
 }
 
 func TestItemCount(t *testing.T) {
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
 	tc.Set("foo", 1, DefaultExpiration)
 	tc.Set("bar", 2, DefaultExpiration)
 	tc.Set("baz", 3, DefaultExpiration)
@@ -129,39 +174,51 @@ func TestItemCount(t *testing.T) {
 }
 
 func TestFlush(t *testing.T) {
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: -1,
+	})
 	tc.Set("foo", 1, DefaultExpiration)
 	tc.Set("baz", 2, DefaultExpiration)
 	tc.Flush()
-	x := tc.Get("foo")
-	if x != nil {
+	x, found := tc.Get("foo")
+	if found {
+		t.Error("foo was found, but it should have been deleted")
+	}
+	if x != 0 {
 		t.Error("x is not nil:", x)
 	}
-	x = tc.Get("baz")
-	if x != nil {
+	x, found = tc.Get("baz")
+	if found {
+		t.Error("baz was found, but it should have been deleted")
+	}
+	if x != 0 {
 		t.Error("x is not nil:", x)
 	}
 }
 
 func TestOnEvicted(t *testing.T) {
-	tc := New(DefaultExpiration, 0)
-	tc.Set("foo", ValueType(3), DefaultExpiration)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
+	tc.Set("foo", 3, DefaultExpiration)
 	if tc.onEvicted != nil {
 		t.Fatal("tc.onEvicted is not nil")
 	}
 	works := false
-	tc.OnEvicted(func(k string, v *ValueType) {
-		if k == "foo" && int(*v) == 3 {
+	tc.OnEvicted(func(k string, v ValueType_tpl) {
+		if k == "foo" && v == 3 {
 			works = true
 		}
-		tc.Set("bar", ValueType(4), DefaultExpiration)
+		tc.Set("bar", 4, DefaultExpiration)
 	})
 	tc.Delete("foo")
-	x := tc.Get("bar")
+	x, _ := tc.Get("bar")
 	if !works {
 		t.Error("works bool not true")
 	}
-	if int(*x) != 4 {
+	if x != 4 {
 		t.Error("bar was not 4")
 	}
 }
@@ -176,7 +233,10 @@ func BenchmarkCacheGetNotExpiring(b *testing.B) {
 
 func benchmarkCacheGet(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := New(exp, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      exp,
+		DefaultCleanupInterval: 0,
+	})
 	tc.Set("foo", 1, DefaultExpiration)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
@@ -237,7 +297,10 @@ func BenchmarkCacheGetConcurrentNotExpiring(b *testing.B) {
 
 func benchmarkCacheGetConcurrent(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := New(exp, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      exp,
+		DefaultCleanupInterval: 0,
+	})
 	tc.Set("foo", 1, DefaultExpiration)
 	wg := new(sync.WaitGroup)
 	workers := runtime.NumCPU()
@@ -293,20 +356,24 @@ func benchmarkCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	// in sharded_test.go.
 	b.StopTimer()
 	n := 10000
-	tc := New(exp, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      exp,
+		DefaultCleanupInterval: 0,
+	})
 	keys := make([]string, n)
 	for i := 0; i < n; i++ {
 		k := "foo" + strconv.Itoa(i)
 		keys[i] = k
-		tc.Set(k, ValueType(1), DefaultExpiration)
+		tc.Set(k, ValueType_tpl(1), DefaultExpiration)
 	}
 	each := b.N / n
 	wg := new(sync.WaitGroup)
 	wg.Add(n)
 	for _, v := range keys {
+		x := v
 		go func() {
 			for j := 0; j < each; j++ {
-				tc.Get(v)
+				tc.Get(x)
 			}
 			wg.Done()
 		}()
@@ -325,7 +392,10 @@ func BenchmarkCacheSetNotExpiring(b *testing.B) {
 
 func benchmarkCacheSet(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := New(exp, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      exp,
+		DefaultCleanupInterval: 0,
+	})
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tc.Set("foo", 1, DefaultExpiration)
@@ -346,7 +416,10 @@ func BenchmarkRWMutexMapSet(b *testing.B) {
 
 func BenchmarkCacheSetDelete(b *testing.B) {
 	b.StopTimer()
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tc.Set("foo", 1, DefaultExpiration)
@@ -371,7 +444,10 @@ func BenchmarkRWMutexMapSetDelete(b *testing.B) {
 
 func BenchmarkCacheSetDeleteSingleLock(b *testing.B) {
 	b.StopTimer()
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tc.mu.Lock()
@@ -397,7 +473,10 @@ func BenchmarkRWMutexMapSetDeleteSingleLock(b *testing.B) {
 func BenchmarkIncrementInt(b *testing.B) {
 	b.Skip()
 	b.StopTimer()
-	tc := New(DefaultExpiration, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
 	tc.Set("foo", 0, DefaultExpiration)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
@@ -407,7 +486,10 @@ func BenchmarkIncrementInt(b *testing.B) {
 
 func BenchmarkDeleteExpiredLoop(b *testing.B) {
 	b.StopTimer()
-	tc := New(5*time.Minute, 0)
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      5 * time.Minute,
+		DefaultCleanupInterval: 0,
+	})
 	tc.mu.Lock()
 	for i := 0; i < 100000; i++ {
 		tc.set(strconv.Itoa(i), 1, DefaultExpiration)
