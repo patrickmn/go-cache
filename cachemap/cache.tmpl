@@ -1,4 +1,6 @@
-package {{.PackageName}}
+package {{.PackageName}} 
+
+// The package is used as a template, don't use it directly!
 
 import (
 	"fmt"
@@ -9,10 +11,14 @@ import (
 
 // Attr is cachmap attribute
 type {{.ValueType}}CacheAttr struct {
-	OnEvicted              func(k string, v {{.ValueType}}) // called when k evicted if set
-	DefaultCleanupInterval time.Duration                    // default clean interval
-	DefaultExpiration      time.Duration                    // default expiration duration
-	Size                   int64                            // inital size of map
+	// An (optional) function that is called with the key and value when an
+	// item is evicted from the cache. (Including when it is deleted manually, but
+	// not when it is overwritten.) Set to nil to disable.
+	OnEvicted func(k string, v {{.ValueType}})
+
+	DefaultCleanupInterval time.Duration // Default clean interval, this is a time interval to cleanup expired items
+	DefaultExpiration      time.Duration // Default expiration duration
+	Size                   int64         // Initial size of map
 }
 
 // Item struct
@@ -21,7 +27,7 @@ type Item struct {
 	Expiration int64
 }
 
-// Expired Returns true if the item has expired, if valid Expiration is set.
+// Expired returns true if the item has expired.
 func (item Item) Expired() bool {
 	return item.Expiration != 0 && time.Now().UnixNano() > item.Expiration
 }
@@ -31,7 +37,7 @@ const (
 	NoExpiration time.Duration = -1
 	// DefaultExpiration is for use with functions that take an
 	// expiration time. Equivalent to passing in the same expiration
-	// duration as was given to New() or NewFrom() when the cache was
+	// duration as was given to New() when the cache was
 	// created (e.g. 5 minutes.)
 	DefaultExpiration time.Duration = 0
 )
@@ -137,13 +143,23 @@ func (c *cache) get(k string) (*{{.ValueType}}, bool) {
 	return &item.Object, true
 }
 
+{{ if call .IsNumberic .RealType }}
+
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
 // uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
 // item's value is not an integer, if it was not found, or if it is not
 // possible to increment it by n. To retrieve the incremented value, use one
 // of the specialized methods, e.g. IncrementInt64.
-// TODO: Increment for numberic type.
-func (c *cache) Increment(k string, n int64) error {
+func (c *cache) Increment(k string, n {{.ValueType}}) error {
+	c.mu.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.mu.Unlock()
+		return fmt.Errorf("Item %s not found", k)
+	}
+	v.Object += n
+	c.items[k] = v
+	c.mu.Unlock()
 	return nil
 }
 
@@ -152,12 +168,21 @@ func (c *cache) Increment(k string, n int64) error {
 // item's value is not an integer, if it was not found, or if it is not
 // possible to decrement it by n. To retrieve the decremented value, use one
 // of the specialized methods, e.g. DecrementInt64.
-// TODO: Decrement
-func (c *cache) Decrement(k string, n int64) error {
+func (c *cache) Decrement(k string, n {{.ValueType}}) error {
 	// TODO: Implement Increment and Decrement more cleanly.
 	// (Cannot do Increment(k, n*-1) for uints.)
+	c.mu.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.mu.Unlock()
+		return fmt.Errorf("Item not found")
+	}
+	c.items[k] = v
+	c.mu.Unlock()
 	return nil
 }
+
+{{end}}
 
 // Delete an item from the cache. Does nothing if the key is not in the cache.
 func (c *cache) Delete(k string) {
@@ -182,7 +207,8 @@ func (c *cache) delete(k string) ({{.ValueType}}, bool) {
 		delete(c.items, k)
 		return v.Object, true
 	}
-	return {{ .ZeroValue }}, false
+	//TODO: zeroValue
+	return 0, false
 }
 
 func (c *cache) deleteFast(k string) {
@@ -225,16 +251,6 @@ func (c *cache) DeleteExpired() {
 	for _, v := range evictedItems {
 		c.onEvicted(v.key, v.value)
 	}
-}
-
-// Sets an (optional) function that is called with the key and value when an
-// item is evicted from the cache. (Including when it is deleted manually, but
-// not when it is overwritten.) Set to nil to disable.
-// 这里加锁没有意义
-func (c *cache) OnEvicted(f func(string, {{.ValueType}})) {
-	c.mu.Lock()
-	c.onEvicted = f
-	c.mu.Unlock()
 }
 
 // Returns the number of items in the cache. This may include items that have

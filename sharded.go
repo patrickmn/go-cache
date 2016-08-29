@@ -82,11 +82,11 @@ func (sc *shardedCache) Get(k string) (ValueType_tpl, bool) {
 	return sc.bucket(k).Get(k)
 }
 
-func (sc *shardedCache) Increment(k string, n int64) error {
+func (sc *shardedCache) Increment(k string, n ValueType_tpl) error {
 	return sc.bucket(k).Increment(k, n)
 }
 
-func (sc *shardedCache) Decrement(k string, n int64) error {
+func (sc *shardedCache) Decrement(k string, n ValueType_tpl) error {
 	return sc.bucket(k).Decrement(k, n)
 }
 

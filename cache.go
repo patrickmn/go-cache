@@ -16,9 +16,9 @@ type Attr_tpl struct {
 	// not when it is overwritten.) Set to nil to disable.
 	OnEvicted func(k string, v ValueType_tpl)
 
-	DefaultCleanupInterval time.Duration // default clean interval
-	DefaultExpiration      time.Duration // default expiration duration
-	Size                   int64         // initial size of map
+	DefaultCleanupInterval time.Duration // Default clean interval, this is a time interval to cleanup expired items
+	DefaultExpiration      time.Duration // Default expiration duration
+	Size                   int64         // Initial size of map
 }
 
 // Item struct
@@ -27,7 +27,7 @@ type Item struct {
 	Expiration int64
 }
 
-// Expired Returns true if the item has expired, if valid Expiration is set.
+// Expired returns true if the item has expired.
 func (item Item) Expired() bool {
 	return item.Expiration != 0 && time.Now().UnixNano() > item.Expiration
 }
@@ -37,7 +37,7 @@ const (
 	NoExpiration time.Duration = -1
 	// DefaultExpiration is for use with functions that take an
 	// expiration time. Equivalent to passing in the same expiration
-	// duration as was given to New() or NewFrom() when the cache was
+	// duration as was given to New() when the cache was
 	// created (e.g. 5 minutes.)
 	DefaultExpiration time.Duration = 0
 )
@@ -143,13 +143,23 @@ func (c *cache) get(k string) (*ValueType_tpl, bool) {
 	return &item.Object, true
 }
 
+// MARK_Numberic_tpl_begin
+
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
 // uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
 // item's value is not an integer, if it was not found, or if it is not
 // possible to increment it by n. To retrieve the incremented value, use one
 // of the specialized methods, e.g. IncrementInt64.
-// TODO: Increment for numberic type.
-func (c *cache) Increment(k string, n int64) error {
+func (c *cache) Increment(k string, n ValueType_tpl) error {
+	c.mu.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.mu.Unlock()
+		return fmt.Errorf("Item %s not found", k)
+	}
+	v.Object += n
+	c.items[k] = v
+	c.mu.Unlock()
 	return nil
 }
 
@@ -158,12 +168,22 @@ func (c *cache) Increment(k string, n int64) error {
 // item's value is not an integer, if it was not found, or if it is not
 // possible to decrement it by n. To retrieve the decremented value, use one
 // of the specialized methods, e.g. DecrementInt64.
-// TODO: Decrement
-func (c *cache) Decrement(k string, n int64) error {
+func (c *cache) Decrement(k string, n ValueType_tpl) error {
 	// TODO: Implement Increment and Decrement more cleanly.
 	// (Cannot do Increment(k, n*-1) for uints.)
+	c.mu.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.mu.Unlock()
+		return fmt.Errorf("Item not found")
+	}
+	v.Object -= n
+	c.items[k] = v
+	c.mu.Unlock()
 	return nil
 }
+
+// MARK_Numberic_tpl_end
 
 // Delete an item from the cache. Does nothing if the key is not in the cache.
 func (c *cache) Delete(k string) {

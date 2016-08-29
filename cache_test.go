@@ -110,8 +110,42 @@ func TestCacheTimes(t *testing.T) {
 	}
 }
 
-// TODO: test increment.
-func TestIncrementWithInt(t *testing.T) {
+func TestIncrement(t *testing.T) {
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
+	tc.Set("tint", 1, DefaultExpiration)
+	err := tc.Increment("tint", 2)
+	if err != nil {
+		t.Error("Error incrementing:", err)
+	}
+	x, found := tc.Get("tint")
+	if !found {
+		t.Error("tint was not found")
+	}
+	if x != 3 {
+		t.Error("tint is not 3:", x)
+	}
+}
+
+func TestDecrement(t *testing.T) {
+	tc := New_tpl(Attr_tpl{
+		DefaultExpiration:      DefaultExpiration,
+		DefaultCleanupInterval: 0,
+	})
+	tc.Set("int", 5, DefaultExpiration)
+	err := tc.Decrement("int", 2)
+	if err != nil {
+		t.Error("Error decrementing:", err)
+	}
+	x, found := tc.Get("int")
+	if !found {
+		t.Error("int was not found")
+	}
+	if x != 3 {
+		t.Error("int is not 3:", x)
+	}
 }
 
 func TestAdd(t *testing.T) {
@@ -481,7 +515,7 @@ func BenchmarkIncrementInt(b *testing.B) {
 	tc.Set("foo", 0, DefaultExpiration)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		// tc.IncrementInt("foo", 1)
+		tc.Increment("foo", 1)
 	}
 }
 
