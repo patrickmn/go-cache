@@ -147,7 +147,6 @@ FIND:
 	if typeName == "" {
 		typeName = *valueType
 	}
-	fmt.Println("real", typeName, "value", *valueType)
 	zeroTypeValue := zeroValue(typeName)
 	f, err := os.OpenFile(fmt.Sprintf("%s2%s_cachemap.go", *keyType, *valueType), os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {

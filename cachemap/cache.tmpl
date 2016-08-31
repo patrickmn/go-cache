@@ -129,7 +129,7 @@ func (c *cache) Get(k string) ({{.ValueType}}, bool) {
 	// TODO: inline time.Now implementation
 	if !found || item.Expiration > 0 && time.Now().UnixNano() > item.Expiration {
 		c.mu.RUnlock()
-		return {{.ValueType}}(0), false
+		return {{.ZeroValue}}, false
 	}
 	c.mu.RUnlock()
 	return item.Object, true
@@ -207,8 +207,7 @@ func (c *cache) delete(k string) ({{.ValueType}}, bool) {
 		delete(c.items, k)
 		return v.Object, true
 	}
-	//TODO: zeroValue
-	return 0, false
+	return {{.ZeroValue}}, false
 }
 
 func (c *cache) deleteFast(k string) {
