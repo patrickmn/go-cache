@@ -37,6 +37,9 @@ func findInGenDecl(genDecl *ast.GenDecl, valueName string) string {
 				indent, ok := valueSpec.Type.(*ast.Ident)
 				if ok {
 					return indent.Name
+				} else {
+					// For other types like StructType
+					return valueName
 				}
 			}
 		}
@@ -71,7 +74,8 @@ func zeroValue(s string) string {
 		if s[0] == '*' || // Pointer
 			strings.Index(s, "map") == 0 || // map
 			strings.Index(s, "chan") == 0 || // chan
-			strings.Index(s, "[]") == 0 { // slice
+			strings.Index(s, "[]") == 0 || // slice
+			strings.Index(s, "func") == 0 { // func
 			return "nil"
 		}
 		return s + "{}"
@@ -125,11 +129,15 @@ func main() {
 	}
 	packageName := "main"
 	typeName := ""
+FIND:
 	for name, pkg := range pkgs {
 		packageName = name
 		for _, f := range pkg.Files {
 			for _, decl := range f.Decls {
 				typeName = findInDecl(decl, *valueType)
+				if typeName != "" {
+					break FIND
+				}
 			}
 		}
 	}
