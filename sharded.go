@@ -26,7 +26,7 @@ type unexportedShardedCache struct {
 type shardedCache struct {
 	seed    uint32
 	m       uint32
-	cs      []*cache
+	cs      []*cache_tpl
 	janitor *shardedJanitor
 }
 
@@ -62,7 +62,7 @@ func djb33(seed uint32, k string) uint32 {
 	return d ^ (d >> 16)
 }
 
-func (sc *shardedCache) bucket(k string) *cache {
+func (sc *shardedCache) bucket(k string) *cache_tpl {
 	return sc.cs[djb33(sc.seed, k)%sc.m]
 }
 
@@ -106,7 +106,7 @@ func (sc *shardedCache) DeleteExpired() {
 // is needed to use a cache and its corresponding Items() return values at
 // the same time, as the maps are shared.
 // TODO: 不准备暴露这个接口,使用者不应该知道底层的数据.
-func (sc *shardedCache) items() []map[string]Item {
+func (sc *shardedCache) items() []map[string]Item_tpl {
 	return nil
 }
 
@@ -159,12 +159,12 @@ func newShardedCache(n int, de time.Duration) *shardedCache {
 	sc := &shardedCache{
 		seed: seed,
 		m:    uint32(n),
-		cs:   make([]*cache, n),
+		cs:   make([]*cache_tpl, n),
 	}
 	for i := 0; i < n; i++ {
-		c := &cache{
+		c := &cache_tpl{
 			defaultExpiration: de,
-			items:             map[string]Item{},
+			items:             map[string]Item_tpl{},
 		}
 		sc.cs[i] = c
 	}
