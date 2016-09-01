@@ -157,7 +157,7 @@ FIND:
 	if err != nil {
 		fatal(err)
 	}
-	if isBuiltin(*valueType) {
+	if !isBuiltin(*valueType) {
 		*valueType = strings.Title(*valueType)
 	}
 	err = tpl.Execute(
@@ -171,6 +171,22 @@ FIND:
 			"IsNumberic":  isNumberic,
 		},
 	)
+	if err != nil {
+		fatal(err)
+	}
+	constFile, err := os.OpenFile(fmt.Sprintf("cachemap_const.go"), os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		fatal(err)
+	}
+	defer constFile.Close()
+	constTpl, err := template.New("const.tmpl").ParseFiles(filepath.Join(packageDir(), "const.tmpl"))
+	if err != nil {
+		fatal(err)
+	}
+	err = constTpl.Execute(constFile,
+		map[string]interface{}{
+			"PackageName": packageName,
+		})
 	if err != nil {
 		fatal(err)
 	}

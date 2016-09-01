@@ -32,16 +32,6 @@ func (item Item) Expired() bool {
 	return item.Expiration != 0 && time.Now().UnixNano() > item.Expiration
 }
 
-const (
-	// NoExpiration is for use with functions that take no expiration time.
-	NoExpiration time.Duration = -1
-	// DefaultExpiration is for use with functions that take an
-	// expiration time. Equivalent to passing in the same expiration
-	// duration as was given to New() when the cache was
-	// created (e.g. 5 minutes.)
-	DefaultExpiration time.Duration = 0
-)
-
 // Cache struct
 type Cache_tpl struct {
 	*cache
