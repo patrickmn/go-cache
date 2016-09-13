@@ -178,7 +178,7 @@ func newShardedCache(n int, de time.Duration) *shardedCache {
 	return sc
 }
 
-func NewSharded(defaultExpiration, cleanupInterval time.Duration, shards int) *unexportedShardedCache {
+func newSharded(defaultExpiration, cleanupInterval time.Duration, shards int) *unexportedShardedCache {
 	if defaultExpiration == 0 {
 		defaultExpiration = -1
 	}

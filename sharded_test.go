@@ -27,7 +27,7 @@ var shardedKeys = []string{
 }
 
 func TestShardedCache(t *testing.T) {
-	tc := NewSharded(DefaultExpiration, 0, 13)
+	tc := newSharded(DefaultExpiration, 0, 13)
 	for _, v := range shardedKeys {
 		tc.Set(v, "value", DefaultExpiration)
 	}
@@ -43,7 +43,7 @@ func BenchmarkShardedCacheGetNotExpiring(b *testing.B) {
 
 func benchmarkShardedCacheGet(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := NewSharded(exp, 0, 10)
+	tc := newSharded(exp, 0, 10)
 	tc.Set("foobarba", "zquux", DefaultExpiration)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
@@ -62,7 +62,7 @@ func BenchmarkShardedCacheGetManyConcurrentNotExpiring(b *testing.B) {
 func benchmarkShardedCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	b.StopTimer()
 	n := 10000
-	tsc := NewSharded(exp, 0, 20)
+	tsc := newSharded(exp, 0, 20)
 	keys := make([]string, n)
 	for i := 0; i < n; i++ {
 		k := "foo" + strconv.Itoa(n)
