@@ -506,7 +506,6 @@ func BenchmarkRWMutexMapSetDeleteSingleLock(b *testing.B) {
 }
 
 func BenchmarkIncrementInt(b *testing.B) {
-	b.Skip()
 	b.StopTimer()
 	tc := New_tpl(Attr_tpl{
 		DefaultExpiration:      DefaultExpiration,

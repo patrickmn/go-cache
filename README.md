@@ -5,8 +5,8 @@
 
 cachemap is an in-memory key:value store/cache similar to memcached that is
 suitable for applications running on a single machine. Its major advantage is
-that, being essentially a thread-safe `map[string]interface{}` with expiration
-times, it doesn't need to serialize or transmit its contents over the network.
+that, being essentially a thread-safe map with expirationtimes, it doesn't
+need to serialize or transmit its contents over the network.
 
 Any object can be stored, for a given duration or forever, and the cache can be
 safely used by multiple goroutines.
@@ -22,10 +22,12 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 
 ### Usage
 
+run `cachemap -k string -v string`
+
 ```go
 	import (
 		"fmt"
-		"github.com/patrickmn/cachemap"
+		"github.com/ggaaooppeengg/cachemap"
 		"time"
 	)
 
