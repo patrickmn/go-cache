@@ -1,4 +1,4 @@
-package cache
+package {{.PackageName}} 
 
 // The package is used as a template, don't use it directly!
 
@@ -10,11 +10,11 @@ import (
 )
 
 // Attr is cachmap attribute
-type Attr_tpl struct {
+type {{.ValueType}}CacheAttr struct {
 	// An (optional) function that is called with the key and value when an
 	// item is evicted from the cache. (Including when it is deleted manually, but
 	// not when it is overwritten.) Set to nil to disable.
-	OnEvicted func(k string, v ValueType_tpl)
+	OnEvicted func(k string, v {{.ValueType}})
 
 	DefaultCleanupInterval time.Duration // Default clean interval, this is a time interval to cleanup expired items
 	DefaultExpiration      time.Duration // Default expiration duration
@@ -22,34 +22,34 @@ type Attr_tpl struct {
 }
 
 // Item struct
-type Item_tpl struct {
-	Object     ValueType_tpl
+type {{.ValueType}}Item struct {
+	Object     {{.ValueType}}
 	Expiration int64
 }
 
 // Expired returns true if the item has expired.
-func (item Item_tpl) Expired() bool {
+func (item {{.ValueType}}Item) Expired() bool {
 	return item.Expiration != 0 && time.Now().UnixNano() > item.Expiration
 }
 
 // Cache struct
-type Cache_tpl struct {
-	*cache_tpl
+type {{.ValueType}}Cache struct {
+	*{{.ValueType}}cache
 	// If this is confusing, see the comment at the bottom of New()
 }
 
-type cache_tpl struct {
+type {{.ValueType}}cache struct {
 	defaultExpiration time.Duration
-	items             map[string]Item_tpl
+	items             map[string]{{.ValueType}}Item
 	mu                sync.RWMutex
-	onEvicted         func(string, ValueType_tpl)
+	onEvicted         func(string, {{.ValueType}})
 	stop              chan bool
 }
 
 // Add an item to the cache, replacing any existing item. If the duration is 0
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
-func (c *cache_tpl) Set(k string, x ValueType_tpl, d time.Duration) {
+func (c *{{.ValueType}}cache) Set(k string, x {{.ValueType}}, d time.Duration) {
 	// "Inlining" of set
 	var e int64
 	if d == DefaultExpiration {
@@ -59,7 +59,7 @@ func (c *cache_tpl) Set(k string, x ValueType_tpl, d time.Duration) {
 		e = time.Now().Add(d).UnixNano()
 	}
 	c.mu.Lock()
-	c.items[k] = Item_tpl{
+	c.items[k] = {{.ValueType}}Item{
 		Object:     x,
 		Expiration: e,
 	}
@@ -68,7 +68,7 @@ func (c *cache_tpl) Set(k string, x ValueType_tpl, d time.Duration) {
 	c.mu.Unlock()
 }
 
-func (c *cache_tpl) set(k string, x ValueType_tpl, d time.Duration) {
+func (c *{{.ValueType}}cache) set(k string, x {{.ValueType}}, d time.Duration) {
 	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
@@ -76,7 +76,7 @@ func (c *cache_tpl) set(k string, x ValueType_tpl, d time.Duration) {
 	if d > 0 {
 		e = time.Now().Add(d).UnixNano()
 	}
-	c.items[k] = Item_tpl{
+	c.items[k] = {{.ValueType}}Item{
 		Object:     x,
 		Expiration: e,
 	}
@@ -84,7 +84,7 @@ func (c *cache_tpl) set(k string, x ValueType_tpl, d time.Duration) {
 
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
-func (c *cache_tpl) Add(k string, x ValueType_tpl, d time.Duration) error {
+func (c *{{.ValueType}}cache) Add(k string, x {{.ValueType}}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
 	if found {
@@ -98,7 +98,7 @@ func (c *cache_tpl) Add(k string, x ValueType_tpl, d time.Duration) error {
 
 // Set a new value for the cache key only if it already exists, and the existing
 // item hasn't expired. Returns an error otherwise.
-func (c *cache_tpl) Replace(k string, x ValueType_tpl, d time.Duration) error {
+func (c *{{.ValueType}}cache) Replace(k string, x {{.ValueType}}, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
 	if !found {
@@ -112,20 +112,20 @@ func (c *cache_tpl) Replace(k string, x ValueType_tpl, d time.Duration) error {
 
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
-func (c *cache_tpl) Get(k string) (ValueType_tpl, bool) {
+func (c *{{.ValueType}}cache) Get(k string) ({{.ValueType}}, bool) {
 	c.mu.RLock()
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	// TODO: inline time.Now implementation
 	if !found || item.Expiration > 0 && time.Now().UnixNano() > item.Expiration {
 		c.mu.RUnlock()
-		return ValueType_tpl(0), false
+		return {{.ZeroValue}}, false
 	}
 	c.mu.RUnlock()
 	return item.Object, true
 }
 
-func (c *cache_tpl) get(k string) (*ValueType_tpl, bool) {
+func (c *{{.ValueType}}cache) get(k string) (*{{.ValueType}}, bool) {
 	item, found := c.items[k]
 	if !found || item.Expiration > 0 && time.Now().UnixNano() > item.Expiration {
 		return nil, false
@@ -133,14 +133,14 @@ func (c *cache_tpl) get(k string) (*ValueType_tpl, bool) {
 	return &item.Object, true
 }
 
-// MARK_Numberic_tpl_begin
+{{ if call .IsNumberic .RealType }}
 
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
 // uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
 // item's value is not an integer, if it was not found, or if it is not
 // possible to increment it by n. To retrieve the incremented value, use one
 // of the specialized methods, e.g. IncrementInt64.
-func (c *cache_tpl) Increment(k string, n ValueType_tpl) error {
+func (c *{{.ValueType}}cache) Increment(k string, n {{.ValueType}}) error {
 	c.mu.Lock()
 	v, found := c.items[k]
 	if !found || v.Expired() {
@@ -158,7 +158,7 @@ func (c *cache_tpl) Increment(k string, n ValueType_tpl) error {
 // item's value is not an integer, if it was not found, or if it is not
 // possible to decrement it by n. To retrieve the decremented value, use one
 // of the specialized methods, e.g. DecrementInt64.
-func (c *cache_tpl) Decrement(k string, n ValueType_tpl) error {
+func (c *{{.ValueType}}cache) Decrement(k string, n {{.ValueType}}) error {
 	// TODO: Implement Increment and Decrement more cleanly.
 	// (Cannot do Increment(k, n*-1) for uints.)
 	c.mu.Lock()
@@ -173,10 +173,10 @@ func (c *cache_tpl) Decrement(k string, n ValueType_tpl) error {
 	return nil
 }
 
-// MARK_Numberic_tpl_end
+{{end}}
 
 // Delete an item from the cache. Does nothing if the key is not in the cache.
-func (c *cache_tpl) Delete(k string) {
+func (c *{{.ValueType}}cache) Delete(k string) {
 	// fast path
 	if c.onEvicted == nil {
 		c.mu.Lock()
@@ -193,24 +193,23 @@ func (c *cache_tpl) Delete(k string) {
 	}
 }
 
-func (c *cache_tpl) delete(k string) (ValueType_tpl, bool) {
+func (c *{{.ValueType}}cache) delete(k string) ({{.ValueType}}, bool) {
 	if v, found := c.items[k]; found {
 		delete(c.items, k)
 		return v.Object, true
 	}
-	//TODO: zeroValue
-	return 0, false
+	return {{.ZeroValue}}, false
 }
 
-func (c *cache_tpl) deleteFast(k string) {
+func (c *{{.ValueType}}cache) deleteFast(k string) {
 	delete(c.items, k)
 }
 
 // Delete all expired items from the cache.
-func (c *cache_tpl) DeleteExpired() {
-	var evictedItems []struct {
-		key   string
-		value ValueType_tpl
+func (c *{{.ValueType}}cache) DeleteExpired() {
+	var evictedItems []struct{
+		key string
+		value {{.ValueType}}
 	}
 	now := time.Now().UnixNano()
 	// fast path
@@ -232,9 +231,9 @@ func (c *cache_tpl) DeleteExpired() {
 		if v.Expiration > 0 && now > v.Expiration {
 			ov, evicted := c.delete(k)
 			if evicted {
-				evictedItems = append(evictedItems, struct {
-					key   string
-					value ValueType_tpl
+				evictedItems = append(evictedItems, struct{
+					key string
+					value {{.ValueType}}
 				}{k, ov})
 			}
 		}
@@ -247,7 +246,7 @@ func (c *cache_tpl) DeleteExpired() {
 
 // Returns the number of items in the cache. This may include items that have
 // expired, but have not yet been cleaned up. Equivalent to len(c.Items()).
-func (c *cache_tpl) ItemCount() int {
+func (c *{{.ValueType}}cache) ItemCount() int {
 	c.mu.RLock()
 	n := len(c.items)
 	c.mu.RUnlock()
@@ -255,18 +254,18 @@ func (c *cache_tpl) ItemCount() int {
 }
 
 // Delete all items from the cache.
-func (c *cache_tpl) Flush() {
+func (c *{{.ValueType}}cache) Flush() {
 	c.mu.Lock()
-	c.items = map[string]Item_tpl{}
+	c.items = map[string]{{.ValueType}}Item{}
 	c.mu.Unlock()
 }
 
-// _ *cache_tpl is used as a namespace, so that "stopJanitor" will not conflicts for the name.
-func (_ *cache_tpl) stopJanitor(c *Cache_tpl) {
+// _ *{{.ValueType}}cache is used as a namespace, so that "stopJanitor" will not conflicts for the name.
+func (_ *{{.ValueType}}cache) stopJanitor(c *{{.ValueType}}Cache) {
 	c.stop <- true
 }
 
-func (c *cache_tpl) runJanitor(ci time.Duration) {
+func (c *{{.ValueType}}cache) runJanitor(ci time.Duration) {
 	c.stop = make(chan bool)
 	go func() {
 		ticker := time.NewTicker(ci)
@@ -289,12 +288,12 @@ func (c *cache_tpl) runJanitor(ci time.Duration) {
 // and must be deleted manually. If the cleanup interval is less than one,
 // expired items are not deleted from the cache before calling c.DeleteExpired().
 //
-func New_tpl(attr Attr_tpl) *Cache_tpl {
-	items := make(map[string]Item_tpl, attr.Size)
+func New{{.ValueType}}Cache(attr {{.ValueType}}CacheAttr) *{{.ValueType}}Cache {
+	items := make(map[string]{{.ValueType}}Item, attr.Size)
 	if attr.DefaultExpiration == 0 {
 		attr.DefaultExpiration = -1
 	}
-	c := &cache_tpl{
+	c := &{{.ValueType}}cache{
 		defaultExpiration: attr.DefaultExpiration,
 		items:             items,
 	}
@@ -304,7 +303,7 @@ func New_tpl(attr Attr_tpl) *Cache_tpl {
 	// the returned C object from being garbage collected. When it is
 	// garbage collected, the finalizer stops the janitor goroutine, after
 	// which c can be collected.
-	C := &Cache_tpl{c}
+	C := &{{.ValueType}}Cache{c}
 	if attr.DefaultCleanupInterval > 0 {
 		c.runJanitor(attr.DefaultCleanupInterval)
 		runtime.SetFinalizer(C, c.stopJanitor)
