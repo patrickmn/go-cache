@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/ggaaooppeenngg/cachemap.svg?branch=master)](https://travis-ci.org/ggaaooppeenngg/cachemap)
+[![Coverage Status](https://coveralls.io/repos/github/ggaaooppeenngg/cachemap/badge.svg?branch=sharded-dev)](https://coveralls.io/github/ggaaooppeenngg/cachemap?branch=sharded-dev)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ggaaooppeenngg/cachemap)](https://goreportcard.com/report/github.com/ggaaooppeenngg/cachemap)
 [![GoDoc](https://godoc.org/github.com/ggaaooppeenngg/cachemap?status.svg)](https://godoc.org/github.com/ggaaooppeenngg/cachemap)
 # cachemap
