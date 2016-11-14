@@ -17,6 +17,10 @@ cache can be saved to and loaded from a file (using `c.Items()` to retrieve the
 items map to serialize, and `NewFrom()` to create a cache from a deserialized
 one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats.)
 
+### Notice
+
+This is a repo in development, so I leave a implementation with suffix "\_tpl" in `*.go` and the real generator main package in `cachemap` directory,to generate a template for generic usage in main package, you can try to run script like `cat cache.go | sed 's/ValueType_tpl/{{.ValueType}}/g'  | sed 's/New_tpl/New{{.ValueType}}Cache/g' | sed 's/Attr_tpl/{{.ValueType}}CacheAttr/g' | sed 's/Item_tpl/{{.ValueType}}Item/g' |sed 's/Cache_tpl/{{.ValueType}}Cache/g'|sed 's/cache_tpl/{{.ValueType}}cache/g' | sed 's/package\ cache/package\ {{.PackageName}} /g' | sed 's|// MARK_Numberic_tpl_begin|{{ if call .IsNumberic .RealType }}|g' | sed 's|// MARK_Numberic_tpl_end|{{end}}|g' > cachemap/cache.tmpl` to replace "\_tpl" suffix with golang template variables in the main package.
+
 ### Installation
 
 `go get github.com/ggaaooppeenngg/cachemap`
