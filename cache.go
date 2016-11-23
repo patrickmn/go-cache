@@ -48,6 +48,30 @@ type cache struct {
 // Add an item to the cache, replacing any existing item. If the duration is 0
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
+func (c *cache) SetMulti(items map[string]interface{}, d time.Duration) {
+	// "Inlining" of set
+	var e int64
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+	if d > 0 {
+		e = time.Now().Add(d).UnixNano()
+	}
+	c.mu.Lock()
+	for k, v := range items {
+		c.items[k] = Item{
+			Object:     v,
+			Expiration: e,
+		}
+	}
+	// TODO: Calls to mu.Unlock are currently not deferred because defer
+	// adds ~200 ns (as of go1.)
+	c.mu.Unlock()
+}
+
+// Add an item to the cache, replacing any existing item. If the duration is 0
+// (DefaultExpiration), the cache's default expiration time is used. If it is -1
+// (NoExpiration), the item never expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	// "Inlining" of set
 	var e int64
