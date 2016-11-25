@@ -1005,6 +1005,7 @@ func (c *cache) Items() map[string]Item {
 	m := make(map[string]Item, len(c.items))
 	now := time.Now().UnixNano()
 	for k, v := range c.items {
+		// "Inlining" of Expired
 		if v.Expiration > 0 {
 			if now > v.Expiration {
 				continue
