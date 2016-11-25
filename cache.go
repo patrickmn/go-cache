@@ -998,19 +998,25 @@ func (c *cache) LoadFile(fname string) error {
 	return fp.Close()
 }
 
-// Returns the items in the cache. This may include items that have expired,
-// but have not yet been cleaned up. If this is significant, the Expiration
-// fields of the items should be checked. Note that explicit synchronization
-// is needed to use a cache and its corresponding Items() return value at
-// the same time, as the map is shared.
+// Copies all unexpired items in the cache into a new map and returns it.
 func (c *cache) Items() map[string]Item {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.items
+	m := make(map[string]Item, len(c.items))
+	now := time.Now().UnixNano()
+	for k, v := range c.items {
+		if v.Expiration > 0 {
+			if now > v.Expiration {
+				continue
+			}
+		}
+		m[k] = v
+	}
+	return m
 }
 
 // Returns the number of items in the cache. This may include items that have
-// expired, but have not yet been cleaned up. Equivalent to len(c.Items()).
+// expired, but have not yet been cleaned up.
 func (c *cache) ItemCount() int {
 	c.mu.RLock()
 	n := len(c.items)
