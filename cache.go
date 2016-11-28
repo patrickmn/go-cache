@@ -1022,22 +1022,6 @@ func (c *cache) Items() map[string]Item {
 	return m
 }
 
-// Returns all not expired items in the cache. This method is save to use with
-// an active janitor since it copies the underlying map. Therefore method is
-// costly in terms of time and memory. You can read while using this method but
-// not write. Use with caution.
-func (c *cache) GetNotExpiredItems() map[string]Item {
-	retMap := make(map[string]Item, c.ItemCount())
-	c.mu.RLock()
-	for key, item := range c.items{
-		if !item.Expired() {
-			retMap[key] = item
-		}
-	}
-	c.mu.RUnlock()
-	return retMap
-}
-
 // Returns the number of items in the cache. This may include items that have
 // expired, but have not yet been cleaned up.
 func (c *cache) ItemCount() int {

@@ -1254,7 +1254,7 @@ func TestCacheGetAllNotExpiredItems(t *testing.T) {
 	tc.Set("b", "b", DefaultExpiration)
 	tc.Set("c", "c", time.Millisecond*1)
 	time.Sleep(time.Millisecond*2)
-	allNotExpiredItems := tc.GetNotExpiredItems()
+	allNotExpiredItems := tc.Items()
 	if len(allNotExpiredItems) != 2 {
 		t.Error("There are more or less items in the result than the two unexpired.")
 	}
@@ -1710,7 +1710,7 @@ func BenchmarkGetAllNotExpiredItems(b *testing.B) {
 			}
 			b.ResetTimer()
 			for j:= 0; j < b.N; j++{
-				tc.GetNotExpiredItems()
+				tc.Items()
 			}
 		})
 	}
