@@ -135,6 +135,17 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+func (c *cache) GetPossiblyExpired(k string) (interface{}, bool) {
+	c.mu.RLock()
+	// "Inlining" of get and Expired
+	item, found := c.items[k]
+	c.mu.RUnlock()
+	if !found {
+		return nil, false
+	}
+	return item.Object, true
+}
+
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
 	if !found {
