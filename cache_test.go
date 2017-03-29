@@ -1676,3 +1676,46 @@ func BenchmarkDeleteExpiredLoop(b *testing.B) {
 		tc.DeleteExpired()
 	}
 }
+
+func BenchmarkLargeCache01(b *testing.B) {
+	benchmarkLargeCache(b, 100000)	
+}
+
+func BenchmarkLargeCache02(b *testing.B) {
+	benchmarkLargeCache(b, 200000)	
+}
+
+func BenchmarkLargeCache05(b *testing.B) {
+	benchmarkLargeCache(b, 500000)	
+}
+
+func BenchmarkLargeCache10(b *testing.B) {
+	benchmarkLargeCache(b, 1000000)	
+}
+
+func BenchmarkLargeCache20(b *testing.B) {
+	benchmarkLargeCache(b, 2000000)	
+}
+
+func BenchmarkLargeCache50(b *testing.B) {
+	benchmarkLargeCache(b, 5000000)	
+}
+
+func benchmarkLargeCache(b *testing.B, nano int) {
+	b.StopTimer()
+	tc := New(100*time.Millisecond, time.Duration(nano)*time.Nanosecond)
+	b.StartTimer()
+	b.N = 1000000
+	for i := 0; i < b.N; i++ {
+		tc.Set(strconv.Itoa(i), "bar", DefaultExpiration)
+	}
+	b.StopTimer()
+	tc.DeleteExpired()
+	now := time.Now().UnixNano()
+	for _, item := range tc.Items() {
+		if item.Expiration < now {
+			b.Fatalf("some items have not been correctly evicted")
+		}
+	}
+}
+

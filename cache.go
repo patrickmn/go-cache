@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"github.com/petar/GoLLRB/llrb"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -13,6 +14,15 @@ import (
 type Item struct {
 	Object     interface{}
 	Expiration int64
+}
+
+type Node struct {
+	Expiration int64
+	Key        string
+}
+
+func (node Node) Less(than llrb.Item) bool {
+	return node.Expiration < than.(Node).Expiration 
 }
 
 // Returns true if the item has expired.
@@ -43,41 +53,53 @@ type cache struct {
 	mu                sync.RWMutex
 	onEvicted         func(string, interface{})
 	janitor           *janitor
+	sortedItems       *llrb.LLRB
 }
 
 // Add an item to the cache, replacing any existing item. If the duration is 0
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
-	// "Inlining" of set
-	var e int64
-	if d == DefaultExpiration {
-		d = c.defaultExpiration
-	}
-	if d > 0 {
-		e = time.Now().Add(d).UnixNano()
-	}
 	c.mu.Lock()
-	c.items[k] = Item{
-		Object:     x,
-		Expiration: e,
-	}
+	c.set(k, x, d)
 	// TODO: Calls to mu.Unlock are currently not deferred because defer
 	// adds ~200 ns (as of go1.)
 	c.mu.Unlock()
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
-	var e int64
+	item := Item{Object: x,}
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		e = time.Now().Add(d).UnixNano()
+		item.Expiration = time.Now().Add(d).UnixNano()
+		old, found := c.items[k]	
+		if found && old.Expiration != item.Expiration{
+			c.deleteFromBst(Node{Expiration: old.Expiration, Key: k})
+			c.sortedItems.InsertNoReplace(Node{Expiration: item.Expiration, Key: k})			
+		} else if !found {
+			c.sortedItems.InsertNoReplace(Node{Expiration: item.Expiration, Key: k})
+		}		
+	} 	
+	c.items[k] = item
+}
+
+func (c *cache) deleteFromBst (node Node) {
+	//delete nodes from the tree with the same expiration 
+	//until the required one is found
+	var toReinsert []Node
+	for del := c.sortedItems.Delete(node); del != nil; {
+		delNode := del.(Node)		
+		if delNode.Key == node.Key {
+			break
+		} else {
+			toReinsert = append (toReinsert, delNode)
+		}
 	}
-	c.items[k] = Item{
-		Object:     x,
-		Expiration: e,
+	//reinsert the nodes in the tree, with modified expiration
+	for _, delNode := range toReinsert {
+		c.sortedItems.InsertNoReplace(delNode)
 	}
 }
 
@@ -882,13 +904,13 @@ func (c *cache) Delete(k string) {
 }
 
 func (c *cache) delete(k string) (interface{}, bool) {
-	if c.onEvicted != nil {
-		if v, found := c.items[k]; found {
-			delete(c.items, k)
+	if v, found := c.items[k]; found {
+		delete(c.items, k)
+		c.deleteFromBst(Node{Expiration: v.Expiration, Key: k})
+		if c.onEvicted != nil {
 			return v.Object, true
 		}
 	}
-	delete(c.items, k)
 	return nil, false
 }
 
@@ -899,22 +921,30 @@ type keyAndValue struct {
 
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
+	var evictedNodes []Node
 	var evictedItems []keyAndValue
-	now := time.Now().UnixNano()
 	c.mu.Lock()
-	for k, v := range c.items {
-		// "Inlining" of expired
-		if v.Expiration > 0 && now > v.Expiration {
-			ov, evicted := c.delete(k)
-			if evicted {
-				evictedItems = append(evictedItems, keyAndValue{k, ov})
-			}
+	c.sortedItems.DescendLessOrEqual(Node{Expiration: time.Now().UnixNano()}, func(i llrb.Item) bool {
+		v := i.(Node)
+		k := v.Key
+		item, found := c.items[k]
+		if !found {
+			panic("Item in tree but not in map!!")
 		}
+		delete(c.items, k)
+		evictedItems = append(evictedItems, keyAndValue{k, item.Object})	
+		evictedNodes = append(evictedNodes, v)	
+		return true
+	})
+	for _, v := range evictedNodes {
+		c.sortedItems.Delete(v)		
 	}
-	c.mu.Unlock()
-	for _, v := range evictedItems {
-		c.onEvicted(v.key, v.value)
-	}
+	c.mu.Unlock()	
+	if c.onEvicted != nil {
+		for _, n := range evictedItems {		
+			c.onEvicted(n.key, n.value)				
+		}
+	}	
 }
 
 // Sets an (optional) function that is called with the key and value when an
@@ -980,7 +1010,10 @@ func (c *cache) Load(r io.Reader) error {
 			ov, found := c.items[k]
 			if !found || ov.Expired() {
 				c.items[k] = v
-			}
+				if !found {
+					c.sortedItems.InsertNoReplace(Node{Expiration: v.Expiration, Key: k})
+				}				
+			}	
 		}
 	}
 	return err
@@ -1035,6 +1068,7 @@ func (c *cache) ItemCount() int {
 func (c *cache) Flush() {
 	c.mu.Lock()
 	c.items = map[string]Item{}
+	c.sortedItems = llrb.New()
 	c.mu.Unlock()
 }
 
@@ -1076,6 +1110,10 @@ func newCache(de time.Duration, m map[string]Item) *cache {
 	c := &cache{
 		defaultExpiration: de,
 		items:             m,
+	}
+	c.sortedItems = llrb.New()
+	for k, item := range m {
+		c.sortedItems.InsertNoReplace(Node{Key: k, Expiration: item.Expiration})
 	}
 	return c
 }

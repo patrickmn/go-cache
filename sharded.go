@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"time"
+	"github.com/petar/GoLLRB/llrb"
 )
 
 // This is an experimental and unexported (for now) attempt at making a cache
@@ -172,6 +173,7 @@ func newShardedCache(n int, de time.Duration) *shardedCache {
 		c := &cache{
 			defaultExpiration: de,
 			items:             map[string]Item{},
+			sortedItems:       llrb.New(),
 		}
 		sc.cs[i] = c
 	}
