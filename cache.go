@@ -13,7 +13,6 @@ import (
 type Item struct {
 	Object     interface{}
 	Expiration *time.Time
-	Ctime      *time.Time
 	Atime      *time.Time
 }
 
@@ -30,14 +29,10 @@ func (item *Item) LastAccessed() *time.Time {
 	return item.Atime
 }
 
+// Set the Atime
 func (item *Item) Accessed() {
 	now := time.Now()
 	item.Atime = &now
-}
-
-// Return the Ctime
-func (item *Item) Created() *time.Time {
-	return item.Ctime
 }
 
 const (
@@ -75,29 +70,23 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
 	var e *time.Time
-	t := time.Now()
-	at := &t
-	ct := &t
-	
+
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
 	}
 	if d > 0 {
-		t = time.Now().Add(d)
+		t := time.Now().Add(d)
 		e = &t
 	}
-	
+
 	if c.maxItems > 0 {
-		// We don't want to hit the expiration if we're updating.
-		_, found := c.get(k)
-		if found {
-			// Update means change the Ctime
-			ct = c.items[k].Created() 	
-		}
+		// Using maxItems (LRU)
+		now := time.Now()
+		at := &now
+
 		c.items[k] = &Item{
 			Object:     x,
 			Expiration: e,
-			Ctime:      ct,
 			Atime:      at,
 		}
 	} else {
@@ -151,9 +140,11 @@ func (c *cache) get(k string) (interface{}, bool) {
 	if !found || item.Expired() {
 		return nil, false
 	}
-	
-	if c.maxItems > 0 { item.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		item.Accessed()
+	}
+
 	return item.Object, true
 }
 
@@ -169,9 +160,11 @@ func (c *cache) Increment(k string, n int64) error {
 		c.Unlock()
 		return fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	switch v.Object.(type) {
 	case int:
 		v.Object = v.Object.(int) + int(n)
@@ -219,9 +212,11 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 		c.Unlock()
 		return fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	switch v.Object.(type) {
 	case float32:
 		v.Object = v.Object.(float32) + float32(n)
@@ -245,9 +240,11 @@ func (c *cache) IncrementInt(k string, n int) (int, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int)
 	if !ok {
 		c.Unlock()
@@ -269,9 +266,11 @@ func (c *cache) IncrementInt8(k string, n int8) (int8, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int8)
 	if !ok {
 		c.Unlock()
@@ -293,9 +292,11 @@ func (c *cache) IncrementInt16(k string, n int16) (int16, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int16)
 	if !ok {
 		c.Unlock()
@@ -317,9 +318,11 @@ func (c *cache) IncrementInt32(k string, n int32) (int32, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int32)
 	if !ok {
 		c.Unlock()
@@ -341,9 +344,11 @@ func (c *cache) IncrementInt64(k string, n int64) (int64, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int64)
 	if !ok {
 		c.Unlock()
@@ -365,9 +370,11 @@ func (c *cache) IncrementUint(k string, n uint) (uint, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint)
 	if !ok {
 		c.Unlock()
@@ -389,9 +396,11 @@ func (c *cache) IncrementUintptr(k string, n uintptr) (uintptr, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uintptr)
 	if !ok {
 		c.Unlock()
@@ -413,9 +422,11 @@ func (c *cache) IncrementUint8(k string, n uint8) (uint8, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint8)
 	if !ok {
 		c.Unlock()
@@ -438,7 +449,9 @@ func (c *cache) IncrementUint16(k string, n uint16) (uint16, error) {
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
 
-	if c.maxItems > 0 { v.Accessed() }
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
 
 	rv, ok := v.Object.(uint16)
 	if !ok {
@@ -461,9 +474,11 @@ func (c *cache) IncrementUint32(k string, n uint32) (uint32, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint32)
 	if !ok {
 		c.Unlock()
@@ -485,9 +500,11 @@ func (c *cache) IncrementUint64(k string, n uint64) (uint64, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint64)
 	if !ok {
 		c.Unlock()
@@ -509,9 +526,11 @@ func (c *cache) IncrementFloat32(k string, n float32) (float32, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(float32)
 	if !ok {
 		c.Unlock()
@@ -533,9 +552,11 @@ func (c *cache) IncrementFloat64(k string, n float64) (float64, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(float64)
 	if !ok {
 		c.Unlock()
@@ -561,9 +582,11 @@ func (c *cache) Decrement(k string, n int64) error {
 		c.Unlock()
 		return fmt.Errorf("Item not found")
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	switch v.Object.(type) {
 	case int:
 		v.Object = v.Object.(int) - int(n)
@@ -612,8 +635,10 @@ func (c *cache) DecrementFloat(k string, n float64) error {
 		return fmt.Errorf("Item %s not found", k)
 	}
 
-	if c.maxItems > 0 { v.Accessed() }
-	
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	switch v.Object.(type) {
 	case float32:
 		v.Object = v.Object.(float32) - float32(n)
@@ -637,9 +662,11 @@ func (c *cache) DecrementInt(k string, n int) (int, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int)
 	if !ok {
 		c.Unlock()
@@ -661,9 +688,11 @@ func (c *cache) DecrementInt8(k string, n int8) (int8, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int8)
 	if !ok {
 		c.Unlock()
@@ -685,9 +714,11 @@ func (c *cache) DecrementInt16(k string, n int16) (int16, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int16)
 	if !ok {
 		c.Unlock()
@@ -709,9 +740,11 @@ func (c *cache) DecrementInt32(k string, n int32) (int32, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int32)
 	if !ok {
 		c.Unlock()
@@ -733,9 +766,11 @@ func (c *cache) DecrementInt64(k string, n int64) (int64, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(int64)
 	if !ok {
 		c.Unlock()
@@ -757,9 +792,11 @@ func (c *cache) DecrementUint(k string, n uint) (uint, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint)
 	if !ok {
 		c.Unlock()
@@ -781,9 +818,11 @@ func (c *cache) DecrementUintptr(k string, n uintptr) (uintptr, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uintptr)
 	if !ok {
 		c.Unlock()
@@ -805,9 +844,11 @@ func (c *cache) DecrementUint8(k string, n uint8) (uint8, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint8)
 	if !ok {
 		c.Unlock()
@@ -829,9 +870,11 @@ func (c *cache) DecrementUint16(k string, n uint16) (uint16, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint16)
 	if !ok {
 		c.Unlock()
@@ -853,9 +896,11 @@ func (c *cache) DecrementUint32(k string, n uint32) (uint32, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint32)
 	if !ok {
 		c.Unlock()
@@ -878,8 +923,10 @@ func (c *cache) DecrementUint64(k string, n uint64) (uint64, error) {
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
 
-	if c.maxItems > 0 { v.Accessed() }
-	
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(uint64)
 	if !ok {
 		c.Unlock()
@@ -901,9 +948,11 @@ func (c *cache) DecrementFloat32(k string, n float32) (float32, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(float32)
 	if !ok {
 		c.Unlock()
@@ -925,9 +974,11 @@ func (c *cache) DecrementFloat64(k string, n float64) (float64, error) {
 		c.Unlock()
 		return 0, fmt.Errorf("Item %s not found", k)
 	}
-	
-	if c.maxItems > 0 { v.Accessed() }
-	
+
+	if c.maxItems > 0 {
+		v.Accessed()
+	}
+
 	rv, ok := v.Object.(float64)
 	if !ok {
 		c.Unlock()
@@ -1059,8 +1110,8 @@ func (c *cache) ItemCount() int {
 	return n
 }
 
-// Returns the number of items in the cache without locking. This may include 
-// items that have expired, but have not yet been cleaned up. Equivalent to 
+// Returns the number of items in the cache without locking. This may include
+// items that have expired, but have not yet been cleaned up. Equivalent to
 // len(c.Items()).
 func (c *cache) itemCount() int {
 	n := len(c.items)
@@ -1076,8 +1127,9 @@ func (c *cache) Flush() {
 
 // Find oldest N items, and delete them.
 func (c *cache) DeleteLRU(numItems int) {
-	
+
 	c.Lock()
+	defer c.Unlock()
 
 	var lastTime int64 = 0
 	lastItems := make([]string, numItems) // ringbuffer for the last numItems
@@ -1087,18 +1139,18 @@ func (c *cache) DeleteLRU(numItems int) {
 	for k, v := range c.items {
 		if v.Expired() == false {
 			// unexpired item
-			
+
 			atime := v.LastAccessed().UnixNano()
 			if full == false || atime < lastTime {
 				// We found a least-recently-used item,
 				// or our purge buffer isn't full yet
 				lastTime = atime
-				
+
 				// Append it to the buffer,
 				// or start overwriting it
 				if liCount < numItems {
 					lastItems[liCount] = k
-					liCount ++
+					liCount++
 				} else {
 					lastItems[0] = k
 					liCount = 1
@@ -1107,7 +1159,7 @@ func (c *cache) DeleteLRU(numItems int) {
 			}
 		}
 	}
-	
+
 	if lastTime > 0 {
 		// Clean up the items
 		for i := 0; i < len(lastItems) && lastItems[i] != ""; i++ {
@@ -1115,8 +1167,6 @@ func (c *cache) DeleteLRU(numItems int) {
 			c.delete(lastName)
 		}
 	}
-	
-	c.Unlock()
 }
 
 type janitor struct {
@@ -1131,7 +1181,7 @@ func (j *janitor) Run(c *cache) {
 		select {
 		case <-tick:
 			c.DeleteExpired()
-			
+
 			if c.maxItems > 0 {
 				// Purge any LRU overages
 				overCount := c.itemCount() - c.maxItems
@@ -1195,13 +1245,13 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 }
 
 // Return a new cache with a given default expiration duration, cleanup
-// interval, and maximum-ish number of items. If the expiration duration 
-// is less than one (or NoExpiration), the items in the cache never expire 
-// (by default), and must be deleted manually. If the cleanup interval is 
-// less than one, expired items are not deleted from the cache before 
-// calling c.DeleteExpired() and/or c.DeleteLRU(). If maxItems is not greater 
+// interval, and maximum-ish number of items. If the expiration duration
+// is less than one (or NoExpiration), the items in the cache never expire
+// (by default), and must be deleted manually. If the cleanup interval is
+// less than one, expired items are not deleted from the cache before
+// calling c.DeleteExpired() and/or c.DeleteLRU(). If maxItems is not greater
 // than zero, then there will be no soft cap on the number of items in the cache.
-func NewWithLRU(defaultExpiration, cleanupInterval time.Duration,  maxItems int) *Cache {
+func NewWithLRU(defaultExpiration, cleanupInterval time.Duration, maxItems int) *Cache {
 	items := make(map[string]*Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, maxItems)
 }
@@ -1227,6 +1277,10 @@ func NewWithLRU(defaultExpiration, cleanupInterval time.Duration,  maxItems int)
 // gob.Register() the individual types stored in the cache before encoding a
 // map retrieved with c.Items(), and to register those same types before
 // decoding a blob containing an items map.
-func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]*Item, maxItems int) *Cache {
+func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]*Item) *Cache {
+	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, 0)
+}
+
+func NewFromWithLRU(defaultExpiration, cleanupInterval time.Duration, items map[string]*Item, maxItems int) *Cache {
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, maxItems)
 }
