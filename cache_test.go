@@ -77,6 +77,19 @@ func TestCacheTimes(t *testing.T) {
 	tc.Set("c", 3, 20*time.Millisecond)
 	tc.Set("d", 4, 70*time.Millisecond)
 
+	_, expiration, found := tc.GetWithExpiration("c")
+	if !found {
+		t.Error("a Item was not found while getting c")
+	}
+
+	if found && expiration.IsZero() {
+		t.Error("an Item was found but had no expiration")
+	}
+	expirationThreshold := time.Now().Add(25 * time.Second)
+	if !expiration.IsZero() && expiration.After(expirationThreshold) {
+		t.Errorf("a item.Object expiration expected to be before %s but was %s", expirationThreshold, expiration)
+	}
+
 	<-time.After(25 * time.Millisecond)
 	_, found = tc.Get("c")
 	if found {
@@ -1422,6 +1435,19 @@ func TestSerializeUnserializable(t *testing.T) {
 	err := tc.Save(fp) // this should fail gracefully
 	if err.Error() != "gob NewTypeObject can't handle type: chan bool" {
 		t.Error("Error from Save was not gob NewTypeObject can't handle type chan bool:", err)
+	}
+}
+
+func TestItems(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+
+	tc.Set("a", 1, DefaultExpiration)
+	items := tc.Items()
+
+	tc.Set("b", "b", DefaultExpiration)
+
+	if tc.ItemCount() != len(items) {
+		t.Errorf("Error items copy expected length %d but was %d", tc.ItemCount(), len(items))
 	}
 }
 

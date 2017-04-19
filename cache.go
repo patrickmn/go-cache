@@ -179,6 +179,28 @@ func (c *cache) get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+// GetWithExpiration gets an item from the cache
+// Returns the item or nil, the expiration time and a bool indicating
+// whether the key was found.
+func (c *cache) GetWithExpiration(k string) (Item, time.Time, bool) {
+	c.mu.RLock()
+	// "Inlining" of get and Expired
+	item, found := c.items[k]
+	if !found {
+		c.mu.RUnlock()
+		return Item{}, time.Time{}, false
+	}
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			c.mu.RUnlock()
+			return Item{}, time.Time{}, false
+		}
+	}
+	expiration := time.Unix(0, item.Expiration)
+	c.mu.RUnlock()
+	return item, expiration, true
+}
+
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
 // uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
 // item's value is not an integer, if it was not found, or if it is not
