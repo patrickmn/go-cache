@@ -1539,17 +1539,17 @@ func BenchmarkRWMutexInterfaceMapGetString(b *testing.B) {
 	}
 }
 
-func BenchmarkCacheWithLRUGetConcurrentExpiring(b *testing.B) {
-	benchmarkCacheWithLRUGetConcurrent(b, 5*time.Minute, 10)
+func BenchmarkCacheGetConcurrentExpiring(b *testing.B) {
+	benchmarkCacheGetConcurrent(b, 5*time.Minute)
 }
 
-func BenchmarkCacheWithLRUGetConcurrentNotExpiring(b *testing.B) {
-	benchmarkCacheWithLRUGetConcurrent(b, NoExpiration, 10)
+func BenchmarkCacheGetConcurrentNotExpiring(b *testing.B) {
+	benchmarkCacheGetConcurrent(b, NoExpiration)
 }
 
-func benchmarkCacheWithLRUGetConcurrent(b *testing.B, exp time.Duration, max int) {
+func benchmarkCacheGetConcurrent(b *testing.B, exp time.Duration) {
 	b.StopTimer()
-	tc := NewWithLRU(exp, 0, max)
+	tc := New(exp, 0)
 	tc.Set("foo", "bar", DefaultExpiration)
 	wg := new(sync.WaitGroup)
 	workers := runtime.NumCPU()
@@ -1567,17 +1567,17 @@ func benchmarkCacheWithLRUGetConcurrent(b *testing.B, exp time.Duration, max int
 	wg.Wait()
 }
 
-func BenchmarkCacheGetConcurrentExpiring(b *testing.B) {
-	benchmarkCacheGetConcurrent(b, 5*time.Minute)
+func BenchmarkCacheWithLRUGetConcurrentExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetConcurrent(b, 5*time.Minute, 10)
 }
 
-func BenchmarkCacheGetConcurrentNotExpiring(b *testing.B) {
-	benchmarkCacheGetConcurrent(b, NoExpiration)
+func BenchmarkCacheWithLRUGetConcurrentNotExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetConcurrent(b, NoExpiration, 10)
 }
 
-func benchmarkCacheGetConcurrent(b *testing.B, exp time.Duration) {
+func benchmarkCacheWithLRUGetConcurrent(b *testing.B, exp time.Duration, max int) {
 	b.StopTimer()
-	tc := New(exp, 0)
+	tc := NewWithLRU(exp, 0, max)
 	tc.Set("foo", "bar", DefaultExpiration)
 	wg := new(sync.WaitGroup)
 	workers := runtime.NumCPU()
@@ -1634,6 +1634,42 @@ func benchmarkCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	b.StopTimer()
 	n := 10000
 	tc := New(exp, 0)
+	keys := make([]string, n)
+	for i := 0; i < n; i++ {
+		k := "foo" + strconv.Itoa(n)
+		keys[i] = k
+		tc.Set(k, "bar", DefaultExpiration)
+	}
+	each := b.N / n
+	wg := new(sync.WaitGroup)
+	wg.Add(n)
+	for _, v := range keys {
+		go func() {
+			for j := 0; j < each; j++ {
+				tc.Get(v)
+			}
+			wg.Done()
+		}()
+	}
+	b.StartTimer()
+	wg.Wait()
+}
+
+func BenchmarkCacheWithLRUGetManyConcurrentExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetManyConcurrent(b, 5*time.Minute, 10000)
+}
+
+func BenchmarkCacheWithLRUGetManyConcurrentNotExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetManyConcurrent(b, NoExpiration, 10000)
+}
+
+func benchmarkCacheWithLRUGetManyConcurrent(b *testing.B, exp time.Duration, max int) {
+	// This is the same as BenchmarkCacheWithLRUGetConcurrent, but its result
+	// can be compared against BenchmarkShardedCacheWithLRUGetManyConcurrent
+	// in sharded_test.go.
+	b.StopTimer()
+	n := 10000
+	tc := NewWithLRU(exp, 0, max)
 	keys := make([]string, n)
 	for i := 0; i < n; i++ {
 		k := "foo" + strconv.Itoa(n)
