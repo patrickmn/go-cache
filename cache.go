@@ -177,8 +177,10 @@ func (c *cache) Get(k string) (interface{}, bool) {
 		}
 		return nil, false
 	}
+	var now int64
 	if item.Expiration > 0 {
-		if time.Now().UnixNano() > item.Expiration {
+		now = time.Now().UnixNano()
+		if now > item.Expiration {
 			if c.maxItems > 0 {
 				c.mu.Unlock()
 			} else {
@@ -188,7 +190,10 @@ func (c *cache) Get(k string) (interface{}, bool) {
 		}
 	}
 	if c.maxItems > 0 {
-		item.Accessed = time.Now().UnixNano()
+		if now == 0 {
+			now = time.Now().UnixNano()
+		}
+		item.Accessed = now
 		c.items[k] = item
 		c.mu.Unlock()
 	} else {
@@ -205,13 +210,18 @@ func (c *cache) get(k string) (interface{}, bool) {
 		return nil, false
 	}
 	// "Inlining" of Expired
+	var now int64
 	if item.Expiration > 0 {
-		if time.Now().UnixNano() > item.Expiration {
+		now = time.Now().UnixNano()
+		if now > item.Expiration {
 			return nil, false
 		}
 	}
 	if c.maxItems > 0 {
-		item.Accessed = time.Now().UnixNano()
+		if now == 0 {
+			now = time.Now().UnixNano()
+		}
+		item.Accessed = now
 		c.items[k] = item
 	}
 	return item.Object, true
@@ -239,8 +249,10 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 		}
 		return nil, time.Time{}, false
 	}
+	var now int64
 	if item.Expiration > 0 {
-		if time.Now().UnixNano() > item.Expiration {
+		now = time.Now().UnixNano()
+		if now > item.Expiration {
 			if c.maxItems > 0 {
 				c.mu.Unlock()
 			} else {
@@ -249,7 +261,10 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 			return nil, time.Time{}, false
 		}
 		if c.maxItems > 0 {
-			item.Accessed = time.Now().UnixNano()
+			if now == 0 {
+				now = time.Now().UnixNano()
+			}
+			item.Accessed = now
 			c.items[k] = item
 			c.mu.Unlock()
 		} else {
@@ -258,7 +273,10 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 		return item.Object, time.Unix(0, item.Expiration), true
 	}
 	if c.maxItems > 0 {
-		item.Accessed = time.Now().UnixNano()
+		if now == 0 {
+			now = time.Now().UnixNano()
+		}
+		item.Accessed = now
 		c.items[k] = item
 		c.mu.Unlock()
 	} else {
