@@ -1161,10 +1161,9 @@ func (c *cache) DeleteLRU() {
 	c.mu.Lock()
 	var (
 		overCount = c.itemCount() - c.maxItems
-		evicted   []keyAndValue
 		evictFunc = c.onEvicted
 	)
-	evicted = c.deleteLRUAmount(overCount)
+	evicted := c.deleteLRUAmount(overCount)
 	c.mu.Unlock()
 	for _, v := range evicted {
 		evictFunc(v.key, v.value)
@@ -1174,8 +1173,12 @@ func (c *cache) DeleteLRU() {
 // Delete a number of the oldest items from the cache.
 func (c *cache) DeleteLRUAmount(numItems int) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.deleteLRUAmount(numItems)
+	evictFunc := c.onEvicted
+	evicted := c.deleteLRUAmount(numItems)
+	c.mu.Unlock()
+	for _, v := range evicted {
+		evictFunc(v.key, v.value)
+	}
 }
 
 func (c *cache) deleteLRUAmount(numItems int) []keyAndValue {
@@ -1187,9 +1190,12 @@ func (c *cache) deleteLRUAmount(numItems int) []keyAndValue {
 		lastItems          = make([]string, numItems) // Ring buffer
 		liCount            = 0
 		full               = false
-		evictedItems       = make([]keyAndValue, 0, numItems)
-		now                = time.Now().UnixNano()
+		evictedItems []keyAndValue
+		now          = time.Now().UnixNano()
 	)
+	if c.onEvicted != nil {
+		evictedItems = make([]keyAndValue, 0, numItems)
+	}
 	for k, v := range c.items {
 		// "Inlining" of !Expired
 		if v.Expiration == 0 || now <= v.Expiration {
