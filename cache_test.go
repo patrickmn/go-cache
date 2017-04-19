@@ -1137,6 +1137,25 @@ func TestReplace(t *testing.T) {
 	}
 }
 
+func TestUpdate(t *testing.T) {
+	tc := New(75*time.Millisecond, 1*time.Millisecond)
+	tc.Set("a", 1, DefaultExpiration)
+
+	<-time.After(50 * time.Millisecond)
+	_, found := tc.Get("a")
+	if !found {
+		t.Error("error in update; didnt find value that was expected")
+	}
+
+	tc.Update("a", 2)
+	<-time.After(26 * time.Millisecond)
+
+	a, found := tc.Get("a")
+	if found || a != nil {
+		t.Error("Getting A found value that shouldn't exist:", a)
+	}
+}
+
 func TestDelete(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("foo", "bar", DefaultExpiration)

@@ -42,6 +42,7 @@ type cache struct {
 	items             map[string]Item
 	mu                sync.RWMutex
 	onEvicted         func(string, interface{})
+	onEvictedBulk     func([]KeyAndValue)
 	janitor           *janitor
 }
 
@@ -114,6 +115,22 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	c.mu.Unlock()
 	return nil
 }
+
+// Update only if it is already existing, keep same ttl
+// Set new expiry time which is now - its expiration
+func (c *cache) Update(k string, x interface{}) error {
+	c.mu.Lock()
+	_, found := c.get(k)
+	if !found {
+		c.mu.Unlock()
+		return fmt.Errorf("Item %s doesn't exist", k)
+	}
+	newTtl := time.Unix(0, c.items[k].Expiration)
+	c.set(k, x, newTtl.Sub(time.Now()))
+	c.mu.Unlock()
+	return nil
+}
+
 
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
@@ -922,14 +939,14 @@ func (c *cache) delete(k string) (interface{}, bool) {
 	return nil, false
 }
 
-type keyAndValue struct {
-	key   string
-	value interface{}
+type KeyAndValue struct {
+	Key   string
+	Value interface{}
 }
 
 // Delete all expired items from the cache.
 func (c *cache) DeleteExpired() {
-	var evictedItems []keyAndValue
+	var evictedItems []KeyAndValue
 	now := time.Now().UnixNano()
 	c.mu.Lock()
 	for k, v := range c.items {
@@ -937,13 +954,20 @@ func (c *cache) DeleteExpired() {
 		if v.Expiration > 0 && now > v.Expiration {
 			ov, evicted := c.delete(k)
 			if evicted {
-				evictedItems = append(evictedItems, keyAndValue{k, ov})
+				evictedItems = append(evictedItems, KeyAndValue{k, ov})
 			}
 		}
 	}
 	c.mu.Unlock()
-	for _, v := range evictedItems {
-		c.onEvicted(v.key, v.value)
+	// Call evict functions only when
+	// their respective functions exist.
+	if c.onEvictedBulk != nil{
+		c.onEvictedBulk(evictedItems)
+	}else if c.onEvicted != nil{
+		for _, v := range evictedItems {
+			c.onEvicted(v.Key, v.Value)
+		}
+	}else{
 	}
 }
 
@@ -953,6 +977,15 @@ func (c *cache) DeleteExpired() {
 func (c *cache) OnEvicted(f func(string, interface{})) {
 	c.mu.Lock()
 	c.onEvicted = f
+	c.mu.Unlock()
+}
+
+// Set an optional OnEvictedBulk which will be used to evict keys in bulk
+// This is used when eviction happens in bulk when expiry is checked at
+// regular intervals, we dont want to call onEvict multiple times
+func (c *cache) OnEvictedBulk(f func([]KeyAndValue)) {
+	c.mu.Lock()
+	c.onEvictedBulk = f
 	c.mu.Unlock()
 }
 
