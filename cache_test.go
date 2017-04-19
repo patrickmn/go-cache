@@ -1539,6 +1539,34 @@ func BenchmarkRWMutexInterfaceMapGetString(b *testing.B) {
 	}
 }
 
+func BenchmarkCacheWithLRUGetConcurrentExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetConcurrent(b, 5*time.Minute, 10)
+}
+
+func BenchmarkCacheWithLRUGetConcurrentNotExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetConcurrent(b, NoExpiration, 10)
+}
+
+func benchmarkCacheWithLRUGetConcurrent(b *testing.B, exp time.Duration, max int) {
+	b.StopTimer()
+	tc := NewWithLRU(exp, 0, max)
+	tc.Set("foo", "bar", DefaultExpiration)
+	wg := new(sync.WaitGroup)
+	workers := runtime.NumCPU()
+	each := b.N / workers
+	wg.Add(workers)
+	b.StartTimer()
+	for i := 0; i < workers; i++ {
+		go func() {
+			for j := 0; j < each; j++ {
+				tc.Get("foo")
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
 func BenchmarkCacheGetConcurrentExpiring(b *testing.B) {
 	benchmarkCacheGetConcurrent(b, 5*time.Minute)
 }
