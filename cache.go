@@ -25,9 +25,8 @@ func (item Item) Expired() bool {
 }
 
 // Return the time at which this item was last accessed.
-func (item Item) LastAccessed() *time.Time {
-	t := time.Unix(0, item.Accessed)
-	return &t
+func (item Item) LastAccessed() time.Time {
+	return time.Unix(0, item.Accessed)
 }
 
 const (
