@@ -188,6 +188,8 @@ func (c *cache) Get(k string) (interface{}, bool) {
 		}
 	}
 	if c.maxItems > 0 {
+		item.Accessed = time.Now().UnixNano()
+		c.items[k] = item
 		c.mu.Unlock()
 	} else {
 		c.mu.RUnlock()
@@ -213,6 +215,58 @@ func (c *cache) get(k string) (interface{}, bool) {
 		c.items[k] = item
 	}
 	return item.Object, true
+}
+
+// GetWithExpiration returns an item and its expiration time from the cache.
+// It returns the item or nil, the expiration time if one is set (if the item
+// never expires a zero value for time.Time is returned), and a bool indicating
+// whether the key was found.
+func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
+	if c.maxItems > 0 {
+		// LRU enabled; GetWithExpiration implies write
+		c.mu.Lock()
+	} else {
+		// LRU not enabled; GetWithExpiration is read-only
+		c.mu.RLock()
+	}
+	// "Inlining" of get and Expired
+	item, found := c.items[k]
+	if !found {
+		if c.maxItems > 0 {
+			c.mu.Unlock()
+		} else {
+			c.mu.RUnlock()
+		}
+		return nil, time.Time{}, false
+	}
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			if c.maxItems > 0 {
+				c.mu.Unlock()
+			} else {
+				c.mu.RUnlock()
+			}
+			return nil, time.Time{}, false
+		}
+		if c.maxItems > 0 {
+			item.Accessed = time.Now().UnixNano()
+			c.items[k] = item
+			c.mu.Unlock()
+		} else {
+			c.mu.RUnlock()
+		}
+		return item.Object, time.Unix(0, item.Expiration), true
+	}
+	if c.maxItems > 0 {
+		item.Accessed = time.Now().UnixNano()
+		c.items[k] = item
+		c.mu.Unlock()
+	} else {
+		c.mu.RUnlock()
+	}
+	// If expiration <= 0 (i.e. no expiration time set) then return the item
+	// and a zeroed time.Time
+	return item.Object, time.Time{}, true
 }
 
 // Increment an item of type int, int8, int16, int32, int64, uintptr, uint,
