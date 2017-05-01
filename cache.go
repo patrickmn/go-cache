@@ -1,3 +1,4 @@
+// Package cache implements an in-memory key:value store/cache (similar to Memcached) library for Go, suitable for single-machine applications.
 package cache
 
 import (
@@ -10,13 +11,16 @@ import (
 	"time"
 )
 
+// Item represents an item stored in the cache.
+//
+// Item stores information relevant to expiring it from the cache.
 type Item struct {
 	Object     interface{}
 	Expiration int64
 	Accessed   int64
 }
 
-// Returns true if the item has expired.
+// Expired returns true if the item has expired.
 func (item Item) Expired() bool {
 	if item.Expiration == 0 {
 		return false
@@ -24,20 +28,21 @@ func (item Item) Expired() bool {
 	return time.Now().UnixNano() > item.Expiration
 }
 
-// Return the time at which this item was last accessed.
+// LastAccessed returns the time at which this item was last accessed.
 func (item Item) LastAccessed() time.Time {
 	return time.Unix(0, item.Accessed)
 }
 
 const (
-	// For use with functions that take an expiration time.
+	// NoExpiration is for use with functions that take an expiration time.
 	NoExpiration time.Duration = -1
-	// For use with functions that take an expiration time. Equivalent to
-	// passing in the same expiration duration as was given to New() or
-	// NewFrom() when the cache was created (e.g. 5 minutes.)
+	// DefaultExpiration is for use with functions that take an expiration
+	// time. Equivalent to passing in the same expiration duration as was given
+	// to New() or NewFrom() when the cache was created (e.g. 5 minutes.)
 	DefaultExpiration time.Duration = 0
 )
 
+// Cache implements the in-memory key:value cache.
 type Cache struct {
 	*cache
 	// If this is confusing, see the comment at the bottom of New()
@@ -1186,10 +1191,10 @@ func (c *cache) deleteLRUAmount(numItems int) []keyAndValue {
 		return nil
 	}
 	var (
-		lastTime     int64 = 0
-		lastItems          = make([]string, numItems) // Ring buffer
-		liCount            = 0
-		full               = false
+		lastTime     int64
+		lastItems    = make([]string, numItems) // Ring buffer
+		liCount      = 0
+		full         = false
 		evictedItems []keyAndValue
 		now          = time.Now().UnixNano()
 	)
@@ -1410,24 +1415,24 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item, 
 	return C
 }
 
-// Return a new cache with a given default expiration duration and cleanup
-// interval. If the expiration duration is less than one (or NoExpiration),
-// the items in the cache never expire (by default), and must be deleted
-// manually. If the cleanup interval is less than one, expired items are not
-// deleted from the cache before calling c.DeleteExpired().
+// New returns a new cache with a given default expiration duration and cleanup
+// interval. If the expiration duration is less than one (or NoExpiration), the
+// items in the cache never expire (by default), and must be deleted manually.
+// If the cleanup interval is less than one, expired items are not deleted from
+// the cache before calling c.DeleteExpired().
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 	items := make(map[string]Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, 0)
 }
 
-// Return a new cache with a given default expiration duration, cleanup
-// interval, and maximum-ish number of items. If the expiration duration
-// is less than one (or NoExpiration), the items in the cache never expire
-// (by default), and must be deleted manually. If the cleanup interval is
-// less than one, expired items are not deleted from the cache before
-// calling c.DeleteExpired(), c.DeleteLRU(), or c.DeleteLRUAmount(). If maxItems
-// is not greater than zero, then there will be no soft cap on the number of
-// items in the cache.
+// NewWithLRU returns a new cache with a given default expiration duration,
+// cleanup interval, and maximum-ish number of items. If the expiration
+// duration is less than one (or NoExpiration), the items in the cache never
+// expire (by default), and must be deleted manually. If the cleanup interval
+// is less than one, expired items are not deleted from the cache before
+// calling c.DeleteExpired(), c.DeleteLRU(), or c.DeleteLRUAmount(). If
+// maxItems is not greater than zero, then there will be no soft cap on the
+// number of items in the cache.
 //
 // Using the LRU functionality makes Get() a slower, write-locked operation.
 func NewWithLRU(defaultExpiration, cleanupInterval time.Duration, maxItems int) *Cache {
@@ -1435,11 +1440,11 @@ func NewWithLRU(defaultExpiration, cleanupInterval time.Duration, maxItems int) 
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, maxItems)
 }
 
-// Return a new cache with a given default expiration duration and cleanup
-// interval. If the expiration duration is less than one (or NoExpiration),
-// the items in the cache never expire (by default), and must be deleted
-// manually. If the cleanup interval is less than one, expired items are not
-// deleted from the cache before calling c.DeleteExpired().
+// NewFrom returns a new cache with a given default expiration duration and
+// cleanup interval. If the expiration duration is less than one (or
+// NoExpiration), the items in the cache never expire (by default), and must be
+// deleted manually. If the cleanup interval is less than one, expired items
+// are not deleted from the cache before calling c.DeleteExpired().
 //
 // NewFrom() also accepts an items map which will serve as the underlying map
 // for the cache. This is useful for starting from a deserialized cache
@@ -1460,7 +1465,8 @@ func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, 0)
 }
 
-// Similar to NewFrom, but creates a cache with LRU functionality enabled.
+// NewFromWithLRU is similar to NewFrom, but creates a cache with LRU
+// functionality enabled.
 func NewFromWithLRU(defaultExpiration, cleanupInterval time.Duration, items map[string]Item, maxItems int) *Cache {
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, maxItems)
 }
