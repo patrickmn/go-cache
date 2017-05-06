@@ -106,6 +106,28 @@ func TestCacheTimes(t *testing.T) {
 	}
 }
 
+func TestExpiredCacheRetrieval(t *testing.T) {
+	var found bool
+
+	tc := New(50*time.Millisecond, 2*time.Second)
+	tc.Set("a", 1, DefaultExpiration)
+
+	<-time.After(60 * time.Millisecond)
+	_, found = tc.Get("a")
+	if found {
+		t.Error("Found c when it should have been automatically deleted")
+	}
+
+	item, found := tc.GetCacheItem("a")
+	if !found {
+		t.Error("Not Found an expired cache item a when it should have been in the cache")
+	}
+
+	if !item.Expired() {
+		t.Error("Found cache item a marked as not expired when it should have been expired")
+	}
+}
+
 func TestNewFrom(t *testing.T) {
 	m := map[string]Item{
 		"a": Item{

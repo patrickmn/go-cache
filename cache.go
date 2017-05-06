@@ -115,7 +115,22 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
-// Get an item from the cache. Returns the item or nil, and a bool indicating
+// Get an item from the cache, along with its expiration time.
+// Returns the item or nil, and a bool indicating whether the key was found.
+func (c *cache) GetCacheItem(k string) (Item, bool) {
+	c.mu.RLock()
+	// "Inlining" of get and Expired
+	item, found := c.items[k]
+	if !found {
+		c.mu.RUnlock()
+		return Item{}, false
+	}
+
+	c.mu.RUnlock()
+	return item, true
+}
+
+// Get the value of an item from the cache. Returns the value or nil, and a bool indicating
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
