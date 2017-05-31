@@ -135,6 +135,60 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+// GetRefers returns an item from the cache in the same way as Get.
+// If the item is set, and found not to have expired, its expiration is set to
+// time.Now().Add(d) (ie -> TTL is incremented with given duration)
+// this can be used to reduce the TTL, or keep elements in cache longer
+func (c *cache) GetRefresh(k string, d time.Duration) (interface{}, bool) {
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+	c.mu.Lock()
+	item, found := c.items[k]
+	if !found {
+		c.mu.Unlock()
+		return nil, false
+	}
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			c.mu.Unlock()
+			return nil, false
+		}
+	}
+
+	// reset expiration
+	item.Expiration = time.Now().Add(d).UnixNano()
+	c.mu.Unlock()
+	return item.Object, true
+}
+
+// GetRefreshDefault is equivalent to calling GetRefresh with the
+// default expiration time passed to New function
+func (c *cache) GetRefreshDefault(k string) (interface{}, bool) {
+	return c.GetRefresh(k, DefaultExpiration)
+}
+
+// Pop returns an item from cache if it was set and not expired
+// the item is removed immediately
+// expired values are not deleted, but left for the janitor to clean up
+func (c *cache) Pop(k string) (interface{}, bool) {
+	c.mu.Lock()
+	item, found := c.items[k]
+	if !found {
+		c.mu.Unlock()
+		return nil, false
+	}
+
+	if item.Expiration > 0 && time.Now().UnixNano() > item.Expiration {
+		c.mu.Unlock()
+		return nil, false
+	}
+	delete(c.items, k)
+	c.mu.Unlock()
+
+	return item.Object, true
+}
+
 // GetWithExpiration returns an item and its expiration time from the cache.
 // It returns the item or nil, the expiration time if one is set (if the item
 // never expires a zero value for time.Time is returned), and a bool indicating
