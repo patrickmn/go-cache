@@ -135,6 +135,25 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+// Get full Item from cache (with info about expiration).
+// Returns full Item, when allowExpired is set to true returning item even if already expired and a bool indicating
+// whether the key was found.
+func (c *cache) GetItem(k string, allowExpired bool) (Item, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	item, found := c.items[k]
+	if !found {
+		return Item{}, false
+	}
+
+	if !allowExpired && item.Expired() {
+		return Item{}, false
+	}
+
+	return item, true
+}
+
 // GetWithExpiration returns an item and its expiration time from the cache.
 // It returns the item or nil, the expiration time if one is set (if the item
 // never expires a zero value for time.Time is returned), and a bool indicating
