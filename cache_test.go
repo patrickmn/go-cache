@@ -108,11 +108,11 @@ func TestCacheTimes(t *testing.T) {
 
 func TestNewFrom(t *testing.T) {
 	m := map[string]Item{
-		"a": Item{
+		"a": {
 			Object:     1,
 			Expiration: 0,
 		},
-		"b": Item{
+		"b": {
 			Object:     2,
 			Expiration: 0,
 		},
@@ -1224,6 +1224,41 @@ func TestDecrementUnderflowUint(t *testing.T) {
 	}
 }
 
+// TODO: Ring buffer is more efficient but doesn't guarantee that the actually
+// oldest items are removed, just some old items. This shouldn't be significant
+// for large caches, but we can't test it easily.
+//
+// func TestDeleteLRU(t *testing.T) {
+// 	tc := NewWithLRU(1*time.Second, 0, 1)
+// 	tc.Set("foo", 0, DefaultExpiration)
+// 	tc.Set("bar", 1, DefaultExpiration)
+// 	tc.Set("baz", 2, DefaultExpiration)
+// 	tc.Get("foo")
+// 	tc.Get("baz")
+// 	time.Sleep(5 * time.Millisecond)
+// 	tc.Get("bar")
+// 	// Bar was accessed most recently, and should be the only value that
+// 	// stays.
+// 	tc.DeleteLRU()
+// 	if tc.ItemCount() != 1 {
+// 		t.Error("tc.ItemCount() is not 1")
+// 	}
+// 	if _, found := tc.Get("bar"); !found {
+// 		t.Error("bar was not found")
+// 	}
+// }
+
+func TestDeleteLRU(t *testing.T) {
+	tc := NewWithLRU(1*time.Second, 0, 1)
+	tc.Set("foo", 0, DefaultExpiration)
+	tc.Set("bar", 1, DefaultExpiration)
+	tc.Set("baz", 2, DefaultExpiration)
+	tc.DeleteLRU()
+	if tc.ItemCount() != 1 {
+		t.Error("tc.ItemCount() is not 1")
+	}
+}
+
 func TestOnEvicted(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("foo", 3, DefaultExpiration)
@@ -1267,14 +1302,14 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 		{Num: 3},
 	}, DefaultExpiration)
 	tc.Set("[]*struct", []*TestStruct{
-		&TestStruct{Num: 4},
-		&TestStruct{Num: 5},
+		{Num: 4},
+		{Num: 5},
 	}, DefaultExpiration)
 	tc.Set("structception", &TestStruct{
 		Num: 42,
 		Children: []*TestStruct{
-			&TestStruct{Num: 6174},
-			&TestStruct{Num: 4716},
+			{Num: 6174},
+			{Num: 4716},
 		},
 	}, DefaultExpiration)
 
@@ -1443,6 +1478,24 @@ func benchmarkCacheGet(b *testing.B, exp time.Duration) {
 	}
 }
 
+func BenchmarkCacheWithLRUGetExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGet(b, 5*time.Minute, 10)
+}
+
+func BenchmarkCacheWithLRUGetNotExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGet(b, NoExpiration, 10)
+}
+
+func benchmarkCacheWithLRUGet(b *testing.B, exp time.Duration, max int) {
+	b.StopTimer()
+	tc := NewWithLRU(exp, 0, max)
+	tc.Set("foo", "bar", DefaultExpiration)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		tc.Get("foo")
+	}
+}
+
 func BenchmarkRWMutexMapGet(b *testing.B) {
 	b.StopTimer()
 	m := map[string]string{
@@ -1514,6 +1567,34 @@ func benchmarkCacheGetConcurrent(b *testing.B, exp time.Duration) {
 	wg.Wait()
 }
 
+func BenchmarkCacheWithLRUGetConcurrentExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetConcurrent(b, 5*time.Minute, 10)
+}
+
+func BenchmarkCacheWithLRUGetConcurrentNotExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetConcurrent(b, NoExpiration, 10)
+}
+
+func benchmarkCacheWithLRUGetConcurrent(b *testing.B, exp time.Duration, max int) {
+	b.StopTimer()
+	tc := NewWithLRU(exp, 0, max)
+	tc.Set("foo", "bar", DefaultExpiration)
+	wg := new(sync.WaitGroup)
+	workers := runtime.NumCPU()
+	each := b.N / workers
+	wg.Add(workers)
+	b.StartTimer()
+	for i := 0; i < workers; i++ {
+		go func() {
+			for j := 0; j < each; j++ {
+				tc.Get("foo")
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
 func BenchmarkRWMutexMapGetConcurrent(b *testing.B) {
 	b.StopTimer()
 	m := map[string]string{
@@ -1563,12 +1644,48 @@ func benchmarkCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	wg := new(sync.WaitGroup)
 	wg.Add(n)
 	for _, v := range keys {
-		go func() {
+		go func(key string) {
 			for j := 0; j < each; j++ {
-				tc.Get(v)
+				tc.Get(key)
 			}
 			wg.Done()
-		}()
+		}(v)
+	}
+	b.StartTimer()
+	wg.Wait()
+}
+
+func BenchmarkCacheWithLRUGetManyConcurrentExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetManyConcurrent(b, 5*time.Minute, 10000)
+}
+
+func BenchmarkCacheWithLRUGetManyConcurrentNotExpiring(b *testing.B) {
+	benchmarkCacheWithLRUGetManyConcurrent(b, NoExpiration, 10000)
+}
+
+func benchmarkCacheWithLRUGetManyConcurrent(b *testing.B, exp time.Duration, max int) {
+	// This is the same as BenchmarkCacheWithLRUGetConcurrent, but its result
+	// can be compared against BenchmarkShardedCacheWithLRUGetManyConcurrent
+	// in sharded_test.go.
+	b.StopTimer()
+	n := 10000
+	tc := NewWithLRU(exp, 0, max)
+	keys := make([]string, n)
+	for i := 0; i < n; i++ {
+		k := "foo" + strconv.Itoa(n)
+		keys[i] = k
+		tc.Set(k, "bar", DefaultExpiration)
+	}
+	each := b.N / n
+	wg := new(sync.WaitGroup)
+	wg.Add(n)
+	for _, v := range keys {
+		go func(key string) {
+			for j := 0; j < each; j++ {
+				tc.Get(key)
+			}
+			wg.Done()
+		}(v)
 	}
 	b.StartTimer()
 	wg.Wait()
