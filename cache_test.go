@@ -106,6 +106,29 @@ func TestCacheTimes(t *testing.T) {
 	}
 }
 
+func TestCache_SetMulti(t *testing.T) {
+	m := map[string]interface{}{
+		"a": 1,
+		"b": 2,
+	}
+	tc := New(DefaultExpiration, 0)
+	tc.SetMulti(m, 0)
+	a, found := tc.Get("a")
+	if !found {
+		t.Fatal("Did not find a")
+	}
+	if a.(int) != 1 {
+		t.Fatal("a is not 1")
+	}
+	b, found := tc.Get("b")
+	if !found {
+		t.Fatal("Did not find b")
+	}
+	if b.(int) != 2 {
+		t.Fatal("b is not 2")
+	}
+}
+
 func TestNewFrom(t *testing.T) {
 	m := map[string]Item{
 		"a": Item{
