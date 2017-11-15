@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -1158,4 +1159,15 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // decoding a blob containing an items map.
 func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]Item) *Cache {
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
+}
+
+// Return a Bytes cache has as int.
+// To Evaluate memory and cache usage.
+func GetCacheBytes(c *cache) int {
+
+	cacheitems := c.Items()
+	ptrcachebyte := uintptr(len(cacheitems)) * reflect.TypeOf(cacheitems).Elem().Size()
+	cachebyte := int(ptrcachebyte)
+
+	return cachebyte
 }
