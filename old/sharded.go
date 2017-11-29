@@ -1,4 +1,4 @@
-package cache
+package old
 
 import (
 	"crypto/rand"
@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"time"
-	"sync"
 )
 
 // This is an experimental and unexported (for now) attempt at making a cache
@@ -172,7 +171,7 @@ func newShardedCache(n int, de time.Duration) *shardedCache {
 	for i := 0; i < n; i++ {
 		c := &cache{
 			defaultExpiration: de,
-			items:             sync.Map{},
+			items:             map[string]Item{},
 		}
 		sc.cs[i] = c
 	}
