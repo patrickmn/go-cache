@@ -152,6 +152,7 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
 			c.mu.RUnlock()
+			c.Delete(k)
 			return nil, time.Time{}, false
 		}
 
