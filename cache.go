@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"sort"
 	"sync"
 	"time"
 )
@@ -1050,6 +1051,20 @@ func (c *cache) Items() map[string]Item {
 		m[k] = v
 	}
 	return m
+}
+
+// Keys returns a sorted slice of all the keys in the cache.
+func (c *cache) Keys() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	keys := make([]string, len(c.items))
+	var i int
+	for k := range c.items {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // Returns the number of items in the cache. This may include items that have
