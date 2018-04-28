@@ -75,6 +75,12 @@ func main() {
 		foo := x.(*MyStruct)
 			// ...
 	}
+
+	// Set new value if the item is missing or expired
+	item, found := c.SetNx("foo", cache.DefaultExpiration, func(s string) (interface{}, error) {
+            // return value to set if cache miss
+            return "bar", nil
+        })
 }
 ```
 

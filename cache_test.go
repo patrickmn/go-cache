@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
 )
 
 type TestStruct struct {
@@ -1768,4 +1770,52 @@ func TestGetWithExpiration(t *testing.T) {
 	if expiration.UnixNano() < time.Now().UnixNano() {
 		t.Error("expiration for e is in the past")
 	}
+}
+
+func TestSetNx(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	val1, isPresent := tc.SetNx("key1", 10 * time.Second, func(s string) (interface{}, error) {
+		return "a for apple", nil
+	})
+
+	assert.True(t, isPresent)
+	assert.Equal(t, "a for apple", val1)
+
+	val2, isPresent := tc.SetNx("key2", 10 * time.Second, func(s string) (interface{}, error) {
+		return 10, nil
+	})
+
+	assert.True(t, isPresent)
+	assert.Equal(t, 10, val2)
+
+	tc.set("existingKey", []int{1,2,3}, 10 * time.Second)
+	val3, isPresent := tc.SetNx("existingKey", 10 * time.Second, func(s string) (interface{}, error) {
+		return []int{4}, nil
+	})
+
+	assert.True(t, isPresent)
+	assert.Equal(t, []int{1,2,3}, val3)
+
+	tc.set("expiredKey", "expiredValue", 10 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
+	val4, isPresent := tc.SetNx("expiredKey", 10 * time.Second, func(s string) (interface{}, error) {
+		return "newValue", nil
+	})
+
+	assert.True(t, isPresent)
+	assert.Equal(t, "newValue", val4)
+
+	val5, isPresent := tc.SetNx("errorKey", 10 * time.Second, func(s string) (interface{}, error) {
+		return "doesn't matter return value", errors.New("some error")
+	})
+
+	assert.False(t, isPresent)
+	assert.Nil(t, val5)
+
+	val6, isPresent := tc.SetNx("errorKey", 10 * time.Second, func(s string) (interface{}, error) {
+		return nil, nil
+	})
+
+	assert.True(t, isPresent)
+	assert.Nil(t, val6)
 }

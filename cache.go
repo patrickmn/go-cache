@@ -135,6 +135,25 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+func (c *cache) SetNx(k string, expiry time.Duration, funcToCall func(string) (interface{}, error)) (interface{},
+bool) {
+	c.mu.RLock()
+	item, found := c.items[k]
+	if !found || (item.Expiration > 0 && time.Now().UnixNano() > item.Expiration){
+		val, err := funcToCall(k)
+		if err != nil {
+			c.mu.RUnlock()
+			return nil, false
+		}
+
+		c.set(k, val, expiry)
+		c.mu.RUnlock()
+		return val, true
+	}
+	c.mu.RUnlock()
+	return item.Object, true
+}
+
 // GetWithExpiration returns an item and its expiration time from the cache.
 // It returns the item or nil, the expiration time if one is set (if the item
 // never expires a zero value for time.Time is returned), and a bool indicating
