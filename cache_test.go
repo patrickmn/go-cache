@@ -1150,6 +1150,26 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestDeleteByPrefix(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	keys := []string{"foo", "fooa", "foo1", "fooA"}
+	for _, k := range keys {
+		tc.Set(k, "value", DefaultExpiration)
+	}
+	tc.Set("bar", "value", DefaultExpiration)
+	tc.DeleteByPrefix("foo")
+	for _, k := range keys {
+		x, found := tc.Get(k)
+		if found || x != nil {
+			t.Errorf("%s was found, but it should have been deleted\n", k)
+		}
+	}
+	x, found := tc.Get("bar")
+	if !found || x == nil {
+		t.Error("bar was not found")
+	}
+}
+
 func TestItemCount(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("foo", "1", DefaultExpiration)

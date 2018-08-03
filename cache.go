@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -935,6 +936,24 @@ func (c *cache) DeleteExpired() {
 	for k, v := range c.items {
 		// "Inlining" of expired
 		if v.Expiration > 0 && now > v.Expiration {
+			ov, evicted := c.delete(k)
+			if evicted {
+				evictedItems = append(evictedItems, keyAndValue{k, ov})
+			}
+		}
+	}
+	c.mu.Unlock()
+	for _, v := range evictedItems {
+		c.onEvicted(v.key, v.value)
+	}
+}
+
+// Delete the keys with some prefix from the cache
+func (c *cache) DeleteByPrefix(prefix string) {
+	var evictedItems []keyAndValue
+	c.mu.Lock()
+	for k := range c.items {
+		if strings.HasPrefix(k, prefix) {
 			ov, evicted := c.delete(k)
 			if evicted {
 				evictedItems = append(evictedItems, keyAndValue{k, ov})
