@@ -948,7 +948,7 @@ func (c *cache) DeleteExpired() {
 	}
 }
 
-// Delete the keys with some prefix from the cache
+// Delete the keys with a prefix from the cache
 func (c *cache) DeleteByPrefix(prefix string) {
 	var evictedItems []keyAndValue
 	c.mu.Lock()
