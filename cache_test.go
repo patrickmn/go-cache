@@ -68,6 +68,53 @@ func TestCache(t *testing.T) {
 	}
 }
 
+func TestAppend(t *testing.T) {
+	tc := New(NoExpiration, 0)
+	tc.Set("label1", []string{}, NoExpiration)
+	tc.Set("label2", []string{}, NoExpiration)
+	tc.Set("label3", []string{}, NoExpiration)
+
+	tc.Append("label1", "article1")
+	tc.Append("label1", "article2")
+	tc.Append("label2", "article1")
+	tc.Append("label2", "article3")
+	tc.Append("label2", "article4")
+	tc.Append("label3", "article2")
+
+	label1Articles, found := tc.Get("label1")
+	if !found {
+		t.Error("could not find key 'label1' after appending")
+	}
+	label2Articles, found := tc.Get("label2")
+	if !found {
+		t.Error("could not find key 'label2' after appending")
+	}
+	label3Articles, found := tc.Get("label3")
+	if !found {
+		t.Error("could not find key 'label3' after appending")
+	}
+
+	if l := len(label1Articles.([]string)); l != 2 {
+		t.Errorf("'label1' should have 2 articles but has: %d", l)
+	}
+	if l := len(label2Articles.([]string)); l != 3 {
+		t.Errorf("'label2' should have 3 articles but has: %d", l)
+	}
+	if l := len(label3Articles.([]string)); l != 1 {
+		t.Errorf("'label3' should have 1 articles but has: %d", l)
+	}
+
+	if v := label2Articles.([]string)[0]; v != "article1" {
+		t.Errorf("first article of label2 should be article1, but is: %s", v)
+	}
+	if v := label2Articles.([]string)[1]; v != "article3" {
+		t.Errorf("second article of label2 should be article3, but is: %s", v)
+	}
+	if v := label2Articles.([]string)[2]; v != "article4" {
+		t.Errorf("third article of label2 should be article4, but is: %s", v)
+	}
+}
+
 func TestCacheTimes(t *testing.T) {
 	var found bool
 
