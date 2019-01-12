@@ -1135,6 +1135,11 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
 }
 
+// Return a new Cacher interface
+func NewCacher(defaultExpiration, cleanupInterval time.Duration) Cacher {
+	return New(defaultExpiration, cleanupInterval)
+}
+
 // Return a new cache with a given default expiration duration and cleanup
 // interval. If the expiration duration is less than one (or NoExpiration),
 // the items in the cache never expire (by default), and must be deleted
@@ -1158,4 +1163,9 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // decoding a blob containing an items map.
 func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]Item) *Cache {
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
+}
+
+// Return a new Cacher interface
+func NewCacherFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]Item) Cacher {
+	return NewFrom(defaultExpiration, cleanupInterval, items)
 }
