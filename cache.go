@@ -906,20 +906,22 @@ func (c *cache) Delete(k string) {
 	c.mu.Lock()
 	v, evicted := c.delete(k)
 	c.mu.Unlock()
-	if evicted {
+	if c.onEvicted != nil && evicted {
 		c.onEvicted(k, v)
 	}
 }
 
 func (c *cache) delete(k string) (interface{}, bool) {
-	if c.onEvicted != nil {
-		if v, found := c.items[k]; found {
-			delete(c.items, k)
-			return v.Object, true
-		}
+	var ret interface{} = nil
+	var found = false
+
+	if v, ok := c.items[k]; ok {
+		found = true
+		ret = v.Object
+		delete(c.items, k)
 	}
-	delete(c.items, k)
-	return nil, false
+
+	return ret, found
 }
 
 type keyAndValue struct {
@@ -936,7 +938,7 @@ func (c *cache) DeleteExpired() {
 		// "Inlining" of expired
 		if v.Expiration > 0 && now > v.Expiration {
 			ov, evicted := c.delete(k)
-			if evicted {
+			if c.onEvicted != nil && evicted {
 				evictedItems = append(evictedItems, keyAndValue{k, ov})
 			}
 		}
