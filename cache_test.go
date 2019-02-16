@@ -3,12 +3,20 @@ package cache
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http"
 	"runtime"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+func init() {
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe("localhost:9000", nil)
+}
 
 type TestStruct struct {
 	Num      int
