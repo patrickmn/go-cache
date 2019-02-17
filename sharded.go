@@ -104,7 +104,7 @@ func (sc *shardedCache) DeleteExpired() {
 	}
 }
 
-// Returns the items in the cache. This may include items that have expired,
+// Items returns the items in the cache. This may include items that have expired,
 // but have not yet been cleaned up. If this is significant, the Expiration
 // fields of the items should be checked. Note that explicit synchronization
 // is needed to use a cache and its corresponding Items() return values at
