@@ -165,6 +165,10 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	return item.Object, time.Time{}, true
 }
 
+// get returns an item from the cache
+// key found and item not expired => (value, true)
+// key found and item expired     => (value, false)
+// key not found                  => (nil, false)
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
 	if !found {
@@ -173,7 +177,7 @@ func (c *cache) get(k string) (interface{}, bool) {
 	// "Inlining" of Expired
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
-			return nil, false
+			return item.Object, false
 		}
 	}
 	return item.Object, true
