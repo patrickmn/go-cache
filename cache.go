@@ -165,6 +165,38 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	return item.Object, time.Time{}, true
 }
 
+// GetWithExpirationUpdate returns item and updates its cache expiration time
+// It returns the item or nil, the expiration time if one is set (if the item
+// never expires a zero value for time.Time is returned), and a bool indicating
+// whether the key was found.
+func (c *cache) GetWithExpirationUpdate(k string, d time.Duration) (interface{}, bool) {
+	c.mu.RLock()
+	item, found := c.items[k]
+	if !found {
+		c.mu.RUnlock()
+		return nil, false
+	}
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			c.mu.RUnlock()
+			return nil, false
+		}
+	}
+	c.mu.RUnlock()
+
+	c.mu.Lock()
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+	if d > 0 {
+		item.Expiration = time.Now().Add(d).UnixNano()
+	}
+	c.items[k] = item
+	c.mu.Unlock()
+
+	return item.Object, true
+}
+
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
 	if !found {
