@@ -1150,6 +1150,19 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestDeleteRegex(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.Set("foo1", "bar", DefaultExpiration)
+	tc.DeleteRegex(`^foo`)
+	x, found := tc.Get("foo")
+	if found {
+		t.Error("foo was found, but it should have been deleted")
+	}
+	if x != nil {
+		t.Error("x is not nil:", x)
+	}
+}
+
 func TestItemCount(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("foo", "1", DefaultExpiration)

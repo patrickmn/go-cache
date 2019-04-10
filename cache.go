@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"runtime"
 	"sync"
 	"time"
@@ -908,6 +909,16 @@ func (c *cache) Delete(k string) {
 	c.mu.Unlock()
 	if evicted {
 		c.onEvicted(k, v)
+	}
+}
+
+// Delete an item from the cache by regex rule
+func (c *cache) DeleteRegex(rule string) {
+	re, _ := regexp.Compile(rule)
+	for k := range c.items {
+		if re.MatchString(k) {
+			c.Delete(k)
+		}
 	}
 }
 
