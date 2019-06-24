@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"runtime"
 	"strconv"
@@ -1244,6 +1245,41 @@ func TestOnEvicted(t *testing.T) {
 	}
 	if x.(int) != 4 {
 		t.Error("bar was not 4")
+	}
+}
+
+func TestOnMissing(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.Set("foo", 3, DefaultExpiration)
+	if tc.onMissing != nil {
+		t.Fatal("tc.onMissing is not nil")
+	}
+	tc.OnMissing(func(k string) (*Item, error) {
+		return &Item{
+			Object:     42,
+			Expiration: 0,
+		}, nil
+	})
+	x, _ := tc.Get("foo")
+	if x != 3 {
+		t.Error("getting a set item with a generator set produced unexpected result:", x)
+	}
+	x, found := tc.Get("potato")
+	if !found {
+		t.Error("item was not generated for missing key")
+	} else if x.(int) != 42 {
+		t.Error("generated item was not expected; value:", x)
+	}
+	tc.OnMissing(func(k string) (*Item, error) {
+		return nil, fmt.Errorf("some error")
+	})
+	x, found = tc.Get("apples")
+	if found || x != nil {
+		t.Error("onMissing should not have generated this:", x)
+	}
+	x, found = tc.Get("potato")
+	if !found || x != 42 {
+		t.Error("prior generated value should still have been set")
 	}
 }
 
