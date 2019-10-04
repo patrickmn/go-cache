@@ -1762,8 +1762,12 @@ func TestGetWithExpiration(t *testing.T) {
 	} else if e2 := x.(int); e2+2 != 3 {
 		t.Error("e (which should be 1) plus 2 does not equal 3; value:", e2)
 	}
-	if expiration.UnixNano() != tc.items["e"].Expiration {
-		t.Error("expiration for e is not the correct time")
+	tmp, ok := tc.items.Load("e")
+	if ok {
+		e := tmp.(Item)
+		if expiration.UnixNano() != e.Expiration {
+			t.Error("expiration for e is not the correct time")
+		}
 	}
 	if expiration.UnixNano() < time.Now().UnixNano() {
 		t.Error("expiration for e is in the past")
