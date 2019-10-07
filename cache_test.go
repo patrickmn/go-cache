@@ -1149,7 +1149,25 @@ func TestDelete(t *testing.T) {
 		t.Error("x is not nil:", x)
 	}
 }
+func TestREmove(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.Set("foo", "bar", DefaultExpiration)
+	data, ok := tc.Remove("foo")
+	if !ok {
+		t.Error("foo was not found, It should be discovered")
+	}
+	if data != "bar" {
+		t.Error("foo should be bar ")
+	}
 
+	x, found := tc.Get("foo")
+	if found {
+		t.Error("foo was found, but it should have been deleted")
+	}
+	if x != nil {
+		t.Error("x is not nil:", x)
+	}
+}
 func TestItemCount(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("foo", "1", DefaultExpiration)

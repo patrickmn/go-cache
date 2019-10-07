@@ -911,6 +911,23 @@ func (c *cache) Delete(k string) {
 	}
 }
 
+// Remove an item from the cache. Does nothing if the key is not in the cache.
+// There is delete cache data, return cache data and presence status
+func (c *cache) Remove(k string) (interface{}, bool) {
+	c.mu.Lock()
+	v, found := c.items[k]
+	if found {
+		delete(c.items, k)
+		c.mu.Unlock()
+		if c.onEvicted != nil {
+			c.onEvicted(k, v)
+		}
+		return v.Object, true
+	}
+	c.mu.Unlock()
+	return nil, false
+}
+
 func (c *cache) delete(k string) (interface{}, bool) {
 	if c.onEvicted != nil {
 		if v, found := c.items[k]; found {
