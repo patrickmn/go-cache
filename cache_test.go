@@ -1769,3 +1769,28 @@ func TestGetWithExpiration(t *testing.T) {
 		t.Error("expiration for e is in the past")
 	}
 }
+
+func TestGetWithExpirationUpdate(t *testing.T) {
+	var found bool
+
+	tc := New(50*time.Millisecond, 1*time.Millisecond)
+	tc.Set("a", 1, DefaultExpiration)
+
+	<-time.After(25 * time.Millisecond)
+	_, found = tc.GetWithExpirationUpdate("a", DefaultExpiration)
+	if !found {
+ 		t.Error("item `a` not expired yet")
+	}
+
+	<-time.After(25 * time.Millisecond)
+	_, found = tc.Get("a")
+	if !found {
+		t.Error("item `a` not expired yet")
+	}
+
+	<-time.After(30 * time.Millisecond)
+	_, found = tc.Get("a")
+	if found {
+		t.Error("Found `a` when it should have been automatically deleted")
+	}
+}
