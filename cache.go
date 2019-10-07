@@ -42,6 +42,7 @@ type cache struct {
 	items             map[string]Item
 	mu                sync.RWMutex
 	onEvicted         func(string, interface{})
+	onMissing         func(string) (*Item, error)
 	janitor           *janitor
 }
 
@@ -123,6 +124,16 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	item, found := c.items[k]
 	if !found {
 		c.mu.RUnlock()
+		// try to generate the missing value
+		if c.onMissing != nil {
+			item, err := c.onMissing(k)
+			if err == nil {
+				c.mu.Lock()
+				c.items[k] = *item
+				c.mu.Unlock()
+				return item.Object, true
+			}
+		}
 		return nil, false
 	}
 	if item.Expiration > 0 {
@@ -953,6 +964,14 @@ func (c *cache) DeleteExpired() {
 func (c *cache) OnEvicted(f func(string, interface{})) {
 	c.mu.Lock()
 	c.onEvicted = f
+	c.mu.Unlock()
+}
+
+// Sets an (optional) function that is called to optionally generate a value for
+// a key that was not found when calling Get.
+func (c *cache) OnMissing(f func(string) (*Item, error)) {
+	c.mu.Lock()
+	c.onMissing = f
 	c.mu.Unlock()
 }
 
