@@ -1231,8 +1231,8 @@ func TestOnEvicted(t *testing.T) {
 		t.Fatal("tc.onEvicted is not nil")
 	}
 	works := false
-	tc.OnEvicted(func(k string, v interface{}) {
-		if k == "foo" && v.(int) == 3 {
+	tc.OnEvicted(func(k string, v interface{}, expired bool) {
+		if k == "foo" && v.(int) == 3 && expired == false {
 			works = true
 		}
 		tc.Set("bar", 4, DefaultExpiration)
@@ -1247,6 +1247,29 @@ func TestOnEvicted(t *testing.T) {
 	}
 }
 
+func TestOnEvictedWithExpired(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.Set("foo", 3, 1)
+	if tc.onEvicted != nil {
+		t.Fatal("tc.onEvicted is not nil")
+	}
+	works := false
+	tc.OnEvicted(func(k string, v interface{}, expired bool) {
+		if k == "foo" && v.(int) == 3 && expired == true {
+			works = true
+		}
+		tc.Set("bar", 4, DefaultExpiration)
+	})
+	tc.DeleteExpired()
+
+	x, _ := tc.Get("bar")
+	if !works {
+		t.Error("works bool not true")
+	}
+	if x.(int) != 4 {
+		t.Error("bar was not 4")
+	}
+}
 func TestCacheSerialization(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	testFillAndSerialize(t, tc)
