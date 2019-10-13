@@ -81,6 +81,27 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	}
 }
 
+func (c *cache) Append(k string, x string) error {
+	c.mu.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.mu.Unlock()
+		return fmt.Errorf("Item %q not found", k)
+	}
+	rv, ok := v.Object.([]string)
+	if !ok {
+		c.mu.Unlock()
+		return fmt.Errorf("The value for %s is not an []string", k)
+	}
+	nv := append(rv, x)
+	v.Object = nv
+	c.items[k] = v
+	// TODO: Calls to mu.Unlock are currently not deferred because defer
+	// adds ~200 ns (as of go1.)
+	c.mu.Unlock()
+	return nil
+}
+
 // Add an item to the cache, replacing any existing item, using the default
 // expiration.
 func (c *cache) SetDefault(k string, x interface{}) {
