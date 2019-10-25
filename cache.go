@@ -87,6 +87,38 @@ func (c *cache) SetDefault(k string, x interface{}) {
 	c.Set(k, x, DefaultExpiration)
 }
 
+// Update the expiration on an item in the cache Update the expiration an item
+// from the cache. Returns the previous expiration time if one is set (if the
+// item never expires a zero value for time.Time is returned), and a
+// bool indicating whether the key was found.
+func (c *cache) UpdateExpiration(k string, d time.Duration) (time.Time, bool) {
+    c.mu.Lock()
+    // "Inlining" of get and Expired
+    item, found := c.items[k]
+    if !found {
+        c.mu.Unlock()
+        return time.Time{}, false
+    }
+
+    if item.Expiration > 0 {
+        if time.Now().UnixNano() > item.Expiration {
+            c.mu.Unlock()
+            return time.Time{}, false
+        }
+    }
+
+    c.set(k, item.Object, d)
+    c.mu.Unlock()
+
+    if item.Expiration > 0 {
+        return time.Unix(0, item.Expiration), true
+    }
+
+    // If expiration <= 0 (i.e. no expiration time set) then return a zeroed
+    // time.Time
+    return time.Time{}, true
+}
+
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
 func (c *cache) Add(k string, x interface{}, d time.Duration) error {

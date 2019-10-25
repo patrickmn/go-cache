@@ -1769,3 +1769,98 @@ func TestGetWithExpiration(t *testing.T) {
 		t.Error("expiration for e is in the past")
 	}
 }
+
+func TestUpdateExpiration(t *testing.T) {
+    tc := New(50*time.Millisecond, 1*time.Millisecond)
+
+    tc.Set("a", 1, DefaultExpiration)
+    x, e1, found := tc.GetWithExpiration("a")
+    if !found {
+        t.Error("did not find a")
+    }
+    if x != 1 {
+        t.Error("a should be 1; value:", x)
+    }
+
+    tc.Increment("a", 1)
+    x, e2, found := tc.GetWithExpiration("a")
+    if !found {
+        t.Error("did not find a2")
+    }
+    if x != 2 {
+        t.Error("a2 should be 2; value:", x)
+    }
+    if e1 != e2 {
+        t.Error("expiration changed when it should not have")
+    }
+
+    <-time.After(5*time.Millisecond)
+    tc.Increment("a", 1)
+    e3, found := tc.UpdateExpiration("a", DefaultExpiration)
+    if !found {
+        t.Error("did not find a3")
+    }
+    if e1 != e3 {
+        t.Error("did not get previous expiration back; e1:", e1, "e3:", e3)
+    }
+    x, e3, found = tc.GetWithExpiration("a")
+    if !found {
+        t.Error("did not find a3")
+    }
+    if x != 3 {
+        t.Error("a3 should be 3; value:", x)
+    }
+    if e1 == e3 {
+        t.Error("should have different expiration but did not change")
+    }
+	if e3.UnixNano() != tc.items["a"].Expiration {
+		t.Error("expiration for a3 is not the correct time")
+	}
+	if e3.UnixNano() < time.Now().UnixNano() {
+		t.Error("expiration for a3 is in the past")
+	}
+
+    _, found = tc.UpdateExpiration("a", NoExpiration)
+    if !found {
+        t.Error("did not find a4")
+    }
+    _, e, found := tc.GetWithExpiration("a")
+    if !found {
+        t.Error("did not find a4 a second time")
+    }
+    if !e.IsZero() {
+		t.Error("expiration for a4 is not a zeroed time")
+    }
+
+    _, found = tc.UpdateExpiration("a", 50*time.Millisecond)
+    if !found {
+        t.Error("did not find a5")
+    }
+    _, e, found = tc.GetWithExpiration("a")
+    if !found {
+        t.Error("did not find a5 a second time")
+    }
+	if e.UnixNano() != tc.items["a"].Expiration {
+		t.Error("expiration for a5 is not the correct time")
+	}
+	if e.UnixNano() < time.Now().UnixNano() {
+		t.Error("expiration for a5 is in the past")
+	}
+
+    <-time.After(49*time.Millisecond)
+    _, found = tc.Get("a")
+    if !found {
+        t.Error("did not find a6")
+    }
+
+    <-time.After(2*time.Millisecond)
+    _, found = tc.Get("a")
+    if found {
+        t.Error("found a7, but it should have expired")
+    }
+
+    _, found = tc.UpdateExpiration("a", DefaultExpiration)
+    if found {
+        t.Error("found a8, but it should have expired")
+    }
+}
