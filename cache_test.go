@@ -154,6 +154,29 @@ func TestStorePointerToStruct(t *testing.T) {
 	}
 }
 
+func TestMemoizeFunction(t *testing.T) {
+	f := func() interface{} {
+		return 5
+	}
+
+	tc := New(DefaultExpiration, 0)
+	x, updated := tc.Memoize("tmemoize", f, DefaultExpiration)
+	if !updated {
+		t.Fatal("tmemoize was not updated")
+	}
+	if x.(int) != 5 {
+		t.Fatal("tmemoize is not 5:", x)
+	}
+
+	y, updated := tc.Memoize("tmemoize", f, DefaultExpiration)
+	if updated {
+		t.Fatal("tmemoize was updated")
+	}
+	if y.(int) != 5 {
+		t.Fatal("tmemoize is not 5:", y)
+	}
+}
+
 func TestIncrementWithInt(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("tint", 1, DefaultExpiration)

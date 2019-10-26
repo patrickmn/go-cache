@@ -81,6 +81,22 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	}
 }
 
+// Lazily compute the given function and store its result item
+// to cache. Returns the computed item and a bool indicating
+// whether the item was updated.
+func (c *cache) Memoize(k string, f func() interface{}, d time.Duration) (interface{}, bool) {
+	c.mu.Lock()
+	v, found := c.get(k)
+	if found {
+		c.mu.Unlock()
+		return v, !found
+	}
+	v = f()
+	c.set(k, v, d)
+	c.mu.Unlock()
+	return v, !found
+}
+
 // Add an item to the cache, replacing any existing item, using the default
 // expiration.
 func (c *cache) SetDefault(k string, x interface{}) {
