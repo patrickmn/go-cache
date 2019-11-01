@@ -1413,6 +1413,38 @@ func TestFileSerialization(t *testing.T) {
 	}
 }
 
+func TestGetItem(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.Set("int8", int8(5), 25*time.Microsecond)
+	n, err := tc.DecrementInt8("int8", 2)
+	if err != nil {
+		t.Error("Error decrementing:", err)
+	}
+	if n != 3 {
+		t.Error("Returned number is not 3:", n)
+	}
+	time.Sleep(50 * time.Microsecond)
+
+	x, found := tc.Get("int8")
+	if found {
+		t.Error("int8 should be expired")
+	}
+
+	_, found = tc.GetItem("int8", false)
+	if found {
+		t.Error("int8 should be expired")
+	}
+
+	item, found := tc.GetItem("int8", true)
+	if !found {
+		t.Error("int8 stale was not found")
+	}
+
+	if item.Object.(int8) != 3 {
+		t.Error("int8 is not 3:", x)
+	}
+}
+
 func TestSerializeUnserializable(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	ch := make(chan bool, 1)
