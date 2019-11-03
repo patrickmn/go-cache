@@ -1034,6 +1034,16 @@ func (c *cache) LoadFile(fname string) error {
 	return fp.Close()
 }
 
+func (c *cache) Keys() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	keys := make([]string, 0, len(c.items))
+	for k := range c.items {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // Copies all unexpired items in the cache into a new map and returns it.
 func (c *cache) Items() map[string]Item {
 	c.mu.RLock()
