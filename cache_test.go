@@ -68,6 +68,24 @@ func TestCache(t *testing.T) {
 	}
 }
 
+func TestCacheKeys(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+
+	tc.Set("a", 1, DefaultExpiration)
+	tc.Set("b", 2, DefaultExpiration)
+	tc.Set("c", 3, DefaultExpiration)
+
+	keys := tc.Keys()
+
+	if len(keys) != 3 {
+		t.Error("invalid number of cache keys received")
+	}
+
+	if keys[0] != "a" || keys[1] != "b" || keys[2] != "c" {
+		t.Error("invalid cache keys received")
+	}
+}
+
 func TestCacheTimes(t *testing.T) {
 	var found bool
 
