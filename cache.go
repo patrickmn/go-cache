@@ -589,6 +589,39 @@ func (c *cache) Decrement(k string, n int64) error {
 	return nil
 }
 
+// Increment an item of type int64 by n.
+// If item exists the value incremented is returned
+// If the item not exists, then it is created with cache defaultExpiration and initial value = n
+// Returns an error if the item's value is not an int64,
+
+func (c *cache) SetOrIncrement64(k string, n int64) (int64, error) {
+	c.mu.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		var e int64
+		d := c.defaultExpiration
+		if d > 0 {
+			e = time.Now().Add(d).UnixNano()
+		}
+
+		c.items[k] = Item{
+			Object:     int64(0),
+			Expiration: e,
+		}
+		v = c.items[k]
+	}
+	rv, ok := v.Object.(int64)
+	if !ok {
+		c.mu.Unlock()
+		return 0, fmt.Errorf("The value for %s is not an int64", k)
+	}
+	nv := rv + n
+	v.Object = nv
+	c.items[k] = v
+	c.mu.Unlock()
+	return nv, nil
+}
+
 // Decrement an item of type float32 or float64 by n. Returns an error if the
 // item's value is not floating point, if it was not found, or if it is not
 // possible to decrement it by n. Pass a negative number to decrement the

@@ -1224,6 +1224,32 @@ func TestDecrementUnderflowUint(t *testing.T) {
 	}
 }
 
+func TestSetOrIncrement64(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.SetOrIncrement64("int64", 4)
+
+	x, found := tc.Get("int64")
+	if !found {
+		t.Error("int64 not found")
+	}
+
+	if x.(int64) != 4 {
+		t.Error("int64 is not 4:", x)
+	}
+
+	tc.SetOrIncrement64("int64", 4)
+
+	x, found = tc.Get("int64")
+	if !found {
+		t.Error("int64 not found")
+	}
+
+	if x.(int64) != 8 {
+		t.Error("int64 is not 8:", x)
+	}
+
+}
+
 func TestOnEvicted(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("foo", 3, DefaultExpiration)
