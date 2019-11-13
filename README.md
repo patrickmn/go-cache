@@ -69,6 +69,13 @@ func main() {
 	// ...
 	// foo can then be passed around freely as a string
 
+        // Want to get the entry in the cache for an item not just the value?
+        var cacheItem Item
+        if x, found := c.GetCacheItem("foo"); found {
+                cacheItem = x.(string)
+        }
+        // ..
+
 	// Want performance? Store pointers!
 	c.Set("foo", &MyStruct, cache.DefaultExpiration)
 	if x, found := c.Get("foo"); found {
