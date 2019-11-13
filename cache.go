@@ -115,6 +115,22 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
+// Update only if it is already existing, keep same ttl
+// Set new expiry time which is now - its expiration
+func (c *cache) Update(k string, x interface{}) error {
+	c.mu.Lock()
+	_, found := c.get(k)
+	if !found {
+		c.mu.Unlock()
+		return fmt.Errorf("Item %s doesn't exist", k)
+	}
+	newTtl := time.Unix(0, c.items[k].Expiration)
+	c.set(k, x, newTtl.Sub(time.Now()))
+	c.mu.Unlock()
+	return nil
+}
+
+
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
