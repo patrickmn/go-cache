@@ -65,7 +65,7 @@ func benchmarkShardedCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	tsc := unexportedNewSharded(exp, 0, 20)
 	keys := make([]string, n)
 	for i := 0; i < n; i++ {
-		k := "foo" + strconv.Itoa(n)
+		k := "foo" + strconv.Itoa(i)
 		keys[i] = k
 		tsc.Set(k, "bar", DefaultExpiration)
 	}

@@ -1555,7 +1555,7 @@ func benchmarkCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	tc := New(exp, 0)
 	keys := make([]string, n)
 	for i := 0; i < n; i++ {
-		k := "foo" + strconv.Itoa(n)
+		k := "foo" + strconv.Itoa(i)
 		keys[i] = k
 		tc.Set(k, "bar", DefaultExpiration)
 	}
