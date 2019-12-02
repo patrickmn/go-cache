@@ -165,6 +165,37 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	return item.Object, time.Time{}, true
 }
 
+// Iterate every item by item handle items from cache,and if the handle returns to false,
+// it will be interrupted and return false.
+func (c *cache) Iterate(f func(key string, item Item) bool) bool {
+	now := time.Now().UnixNano()
+	c.mu.RLock()
+	keys := make([]string, len(c.items))
+	i := 0
+	for k, v := range c.items {
+		// "Inlining" of Expired
+		if v.Expiration > 0 && now > v.Expiration {
+			continue
+		}
+		keys[i] = k
+		i++
+	}
+	c.mu.RUnlock()
+	keys = keys[:i]
+	for _, key := range keys {
+		c.mu.RLock()
+		item, ok := c.items[key]
+		c.mu.RUnlock()
+		if !ok {
+			continue
+		}
+		if !f(key, item) {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *cache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
 	if !found {
