@@ -68,6 +68,20 @@ func TestCache(t *testing.T) {
 	}
 }
 
+func TestGetOrSet(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+
+	a, found := tc.GetOrSet("a", "v", DefaultExpiration)
+	if found || a.(string) != "v" {
+		t.Error("Getting a not found value not equal to default", a)
+	}
+
+	a, found = tc.GetOrSet("a", "v2", DefaultExpiration)
+	if !found || a.(string) != "v" {
+		t.Error("Getting a found value not equal to original", a)
+	}
+}
+
 func TestCacheTimes(t *testing.T) {
 	var found bool
 
