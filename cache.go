@@ -135,6 +135,21 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+// GetOrSet an item from the cache or sets default if not found. Returns the
+// existing item or v if none was found, and a bool indicating
+// whether the key was found.
+func (c *cache) GetOrSet(k string, v interface{}, d time.Duration) (interface{}, bool) {
+	c.mu.Lock()
+	item, found := c.get(k)
+	if !found {
+		c.set(k, v, d)
+		c.mu.Unlock()
+		return v, false
+	}
+	c.mu.Unlock()
+	return item, true
+}
+
 // GetWithExpiration returns an item and its expiration time from the cache.
 // It returns the item or nil, the expiration time if one is set (if the item
 // never expires a zero value for time.Time is returned), and a bool indicating
