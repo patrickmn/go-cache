@@ -125,11 +125,9 @@ func (c *cache) Get(k string) (interface{}, bool) {
 		c.mu.RUnlock()
 		return nil, false
 	}
-	if item.Expiration > 0 {
-		if time.Now().UnixNano() > item.Expiration {
-			c.mu.RUnlock()
-			return nil, false
-		}
+	if item.Expiration > 0 && time.Now().UnixNano() > item.Expiration {
+		c.mu.RUnlock()
+		return nil, false
 	}
 	c.mu.RUnlock()
 	return item.Object, true
@@ -171,10 +169,8 @@ func (c *cache) get(k string) (interface{}, bool) {
 		return nil, false
 	}
 	// "Inlining" of Expired
-	if item.Expiration > 0 {
-		if time.Now().UnixNano() > item.Expiration {
-			return nil, false
-		}
+	if item.Expiration > 0 && time.Now().UnixNano() > item.Expiration {
+		return nil, false
 	}
 	return item.Object, true
 }
@@ -1042,10 +1038,8 @@ func (c *cache) Items() map[string]Item {
 	now := time.Now().UnixNano()
 	for k, v := range c.items {
 		// "Inlining" of Expired
-		if v.Expiration > 0 {
-			if now > v.Expiration {
-				continue
-			}
+		if v.Expiration > 0 && now > v.Expiration {
+			continue
 		}
 		m[k] = v
 	}
