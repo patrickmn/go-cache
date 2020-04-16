@@ -50,18 +50,19 @@ type cache struct {
 // (NoExpiration), the item never expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	// "Inlining" of set
-	var e int64
-	if d == DefaultExpiration {
-		d = c.defaultExpiration
-	}
-	if d > 0 {
-		e = time.Now().Add(d).UnixNano()
-	}
+	// var e int64
+	// if d == DefaultExpiration {
+	// 	d = c.defaultExpiration
+	// }
+	// if d > 0 {
+	// 	e = time.Now().Add(d).UnixNano()
+	// }
 	c.mu.Lock()
-	c.items[k] = Item{
-		Object:     x,
-		Expiration: e,
-	}
+	// c.items[k] = Item{
+	// 	Object:     x,
+	// 	Expiration: e,
+	// }
+	c.set(k, x, d)
 	// TODO: Calls to mu.Unlock are currently not deferred because defer
 	// adds ~200 ns (as of go1.)
 	c.mu.Unlock()
