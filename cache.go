@@ -1063,9 +1063,18 @@ func (c *cache) ItemCount() int {
 
 // Delete all items from the cache.
 func (c *cache) Flush() {
+	var oldCache map[string]Item
+
 	c.mu.Lock()
+	if c.onEvicted != nil {
+		oldCache = c.items
+	}
 	c.items = map[string]Item{}
 	c.mu.Unlock()
+
+	for k, v := range oldCache {
+		c.onEvicted(k, v.Object)
+	}
 }
 
 type janitor struct {

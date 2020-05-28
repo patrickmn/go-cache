@@ -1179,6 +1179,23 @@ func TestFlush(t *testing.T) {
 	if x != nil {
 		t.Error("x is not nil:", x)
 	}
+
+	evictMask := 0
+	tc.OnEvicted(func(k string, v interface{}) {
+		if k == "foo" && v.(string) == "bar" {
+			evictMask |= 0x1
+		}
+		if k == "baz" && v.(string) == "yes" {
+			evictMask |= 0x2
+		}
+	})
+	tc.Set("foo", "bar", DefaultExpiration)
+	tc.Set("baz", "yes", DefaultExpiration)
+	tc.Flush()
+
+	if evictMask != 0x3 {
+		t.Error("on evicted on flush fails")
+	}
 }
 
 func TestIncrementOverflowInt(t *testing.T) {
