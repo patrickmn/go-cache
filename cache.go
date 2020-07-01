@@ -13,10 +13,14 @@ import (
 type Item struct {
 	Object     interface{}
 	Expiration int64
+	mu         sync.RWMutex
 }
 
 // Returns true if the item has expired.
-func (item Item) Expired() bool {
+func (item *Item) Expired() bool {
+	item.mu.RLock()
+	defer item.mu.RUnlock()
+
 	if item.Expiration == 0 {
 		return false
 	}
@@ -39,7 +43,7 @@ type Cache struct {
 
 type cache struct {
 	defaultExpiration time.Duration
-	items             map[string]Item
+	items             map[string]*Item
 	mu                sync.RWMutex
 	onEvicted         func(string, interface{})
 	janitor           *janitor
@@ -58,7 +62,7 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 		e = time.Now().Add(d).UnixNano()
 	}
 	c.mu.Lock()
-	c.items[k] = Item{
+	c.items[k] = &Item{
 		Object:     x,
 		Expiration: e,
 	}
@@ -75,7 +79,7 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	if d > 0 {
 		e = time.Now().Add(d).UnixNano()
 	}
-	c.items[k] = Item{
+	c.items[k] = &Item{
 		Object:     x,
 		Expiration: e,
 	}
@@ -119,19 +123,18 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	if !found {
-		c.mu.RUnlock()
 		return nil, false
 	}
-	if item.Expiration > 0 {
-		if time.Now().UnixNano() > item.Expiration {
-			c.mu.RUnlock()
-			return nil, false
-		}
+
+	if item.Expired() {
+		return nil, false
 	}
-	c.mu.RUnlock()
+
 	return item.Object, true
 }
 
@@ -141,28 +144,63 @@ func (c *cache) Get(k string) (interface{}, bool) {
 // whether the key was found.
 func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	if !found {
-		c.mu.RUnlock()
 		return nil, time.Time{}, false
 	}
 
+	item.mu.RLock()
+	defer item.mu.RUnlock()
+
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
-			c.mu.RUnlock()
 			return nil, time.Time{}, false
 		}
 
 		// Return the item and the expiration time
-		c.mu.RUnlock()
 		return item.Object, time.Unix(0, item.Expiration), true
 	}
 
 	// If expiration <= 0 (i.e. no expiration time set) then return the item
 	// and a zeroed time.Time
-	c.mu.RUnlock()
 	return item.Object, time.Time{}, true
+}
+
+// GetWithExpirationUpdate returns item and updates its cache expiration time
+// It returns the item or nil, the expiration time if one is set (if the item
+// never expires a zero value for time.Time is returned), and a bool indicating
+// whether the key was found.
+func (c *cache) GetWithExpirationUpdate(k string, d time.Duration) (interface{}, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	item, found := c.items[k]
+	if !found {
+		return nil, false
+	}
+
+	// Don't call item.Expired() here since
+	// we write lock item.Expiration
+	item.mu.Lock()
+	defer item.mu.Unlock()
+
+	if item.Expiration > 0 {
+		if time.Now().UnixNano() > item.Expiration {
+			return nil, false
+		}
+	}
+
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+	if d > 0 {
+		c.items[k].Expiration = time.Now().Add(d).UnixNano()
+	}
+
+	return item.Object, true
 }
 
 func (c *cache) get(k string) (interface{}, bool) {
@@ -171,11 +209,10 @@ func (c *cache) get(k string) (interface{}, bool) {
 		return nil, false
 	}
 	// "Inlining" of Expired
-	if item.Expiration > 0 {
-		if time.Now().UnixNano() > item.Expiration {
-			return nil, false
-		}
+	if item.Expired() {
+		return nil, false
 	}
+
 	return item.Object, true
 }
 
@@ -1001,7 +1038,7 @@ func (c *cache) SaveFile(fname string) error {
 // documentation for NewFrom().)
 func (c *cache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
-	items := map[string]Item{}
+	items := map[string]*Item{}
 	err := dec.Decode(&items)
 	if err == nil {
 		c.mu.Lock()
@@ -1035,19 +1072,19 @@ func (c *cache) LoadFile(fname string) error {
 }
 
 // Copies all unexpired items in the cache into a new map and returns it.
-func (c *cache) Items() map[string]Item {
+func (c *cache) Items() map[string]*Item {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	m := make(map[string]Item, len(c.items))
-	now := time.Now().UnixNano()
+	m := make(map[string]*Item, len(c.items))
 	for k, v := range c.items {
 		// "Inlining" of Expired
-		if v.Expiration > 0 {
-			if now > v.Expiration {
-				continue
-			}
+		if v.Expired() {
+			continue
 		}
-		m[k] = v
+		m[k] = &Item{
+			Object:     v.Object,
+			Expiration: v.Expiration,
+		}
 	}
 	return m
 }
@@ -1064,7 +1101,7 @@ func (c *cache) ItemCount() int {
 // Delete all items from the cache.
 func (c *cache) Flush() {
 	c.mu.Lock()
-	c.items = map[string]Item{}
+	c.items = map[string]*Item{}
 	c.mu.Unlock()
 }
 
@@ -1099,7 +1136,7 @@ func runJanitor(c *cache, ci time.Duration) {
 	go j.Run(c)
 }
 
-func newCache(de time.Duration, m map[string]Item) *cache {
+func newCache(de time.Duration, m map[string]*Item) *cache {
 	if de == 0 {
 		de = -1
 	}
@@ -1110,7 +1147,7 @@ func newCache(de time.Duration, m map[string]Item) *cache {
 	return c
 }
 
-func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) *Cache {
+func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]*Item) *Cache {
 	c := newCache(de, m)
 	// This trick ensures that the janitor goroutine (which--granted it
 	// was enabled--is running DeleteExpired on c forever) does not keep
@@ -1131,7 +1168,7 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) 
 // manually. If the cleanup interval is less than one, expired items are not
 // deleted from the cache before calling c.DeleteExpired().
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
-	items := make(map[string]Item)
+	items := make(map[string]*Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
 }
 
@@ -1156,6 +1193,6 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // gob.Register() the individual types stored in the cache before encoding a
 // map retrieved with c.Items(), and to register those same types before
 // decoding a blob containing an items map.
-func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]Item) *Cache {
+func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]*Item) *Cache {
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
 }

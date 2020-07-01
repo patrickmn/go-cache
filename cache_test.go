@@ -107,12 +107,12 @@ func TestCacheTimes(t *testing.T) {
 }
 
 func TestNewFrom(t *testing.T) {
-	m := map[string]Item{
-		"a": Item{
+	m := map[string]*Item{
+		"a": &Item{
 			Object:     1,
 			Expiration: 0,
 		},
-		"b": Item{
+		"b": &Item{
 			Object:     2,
 			Expiration: 0,
 		},
@@ -1767,5 +1767,30 @@ func TestGetWithExpiration(t *testing.T) {
 	}
 	if expiration.UnixNano() < time.Now().UnixNano() {
 		t.Error("expiration for e is in the past")
+	}
+}
+
+func TestGetWithExpirationUpdate(t *testing.T) {
+	var found bool
+
+	tc := New(50*time.Millisecond, 1*time.Millisecond)
+	tc.Set("a", 1, DefaultExpiration)
+
+	<-time.After(25 * time.Millisecond)
+	_, found = tc.GetWithExpirationUpdate("a", DefaultExpiration)
+	if !found {
+		t.Error("item `a` not expired yet")
+	}
+
+	<-time.After(25 * time.Millisecond)
+	_, found = tc.Get("a")
+	if !found {
+		t.Error("item `a` not expired yet")
+	}
+
+	<-time.After(30 * time.Millisecond)
+	_, found = tc.Get("a")
+	if found {
+		t.Error("Found `a` when it should have been automatically deleted")
 	}
 }
