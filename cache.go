@@ -1098,11 +1098,26 @@ func (c *cache) ItemCount() int {
 	return n
 }
 
-// Delete all items from the cache.
-func (c *cache) Flush() {
+// Flush all items from the cache and return them.
+func (c *cache) Flush() map[string]*Item {
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	m := make(map[string]*Item, len(c.items))
+	for k, v := range c.items {
+		// "Inlining" of Expired
+		if v.Expired() {
+			continue
+		}
+		m[k] = &Item{
+			Object:     v.Object,
+			Expiration: v.Expiration,
+		}
+	}
+
 	c.items = map[string]*Item{}
-	c.mu.Unlock()
+
+	return m
 }
 
 type janitor struct {

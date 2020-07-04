@@ -1164,7 +1164,7 @@ func TestFlush(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("foo", "bar", DefaultExpiration)
 	tc.Set("baz", "yes", DefaultExpiration)
-	tc.Flush()
+	items := tc.Flush()
 	x, found := tc.Get("foo")
 	if found {
 		t.Error("foo was found, but it should have been deleted")
@@ -1178,6 +1178,16 @@ func TestFlush(t *testing.T) {
 	}
 	if x != nil {
 		t.Error("x is not nil:", x)
+	}
+
+	x, found = items["foo"]
+	if !found {
+		t.Error("foo was not found, it should be returned on flush")
+	}
+
+	x, found = items["baz"]
+	if !found {
+		t.Error("baz was not found, it should be returned on flush")
 	}
 }
 
