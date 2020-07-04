@@ -1117,7 +1117,7 @@ func (c *cache) Flush() map[string]*Item {
 
 	c.items = map[string]*Item{}
 
-	return m
+	return nil
 }
 
 type janitor struct {
