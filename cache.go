@@ -19,11 +19,13 @@ type Item struct {
 // Returns true if the item has expired.
 func (item *Item) Expired() bool {
 	item.mu.RLock()
-	defer item.mu.RUnlock()
 
 	if item.Expiration == 0 {
+		item.mu.RUnlock()
 		return false
 	}
+
+	item.mu.RUnlock()
 	return time.Now().UnixNano() > item.Expiration
 }
 
@@ -123,18 +125,20 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
 
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	if !found {
+		c.mu.RUnlock()
 		return nil, false
 	}
 
 	if item.Expired() {
+		c.mu.RUnlock()
 		return nil, false
 	}
 
+	c.mu.RUnlock()
 	return item.Object, true
 }
 
@@ -144,23 +148,26 @@ func (c *cache) Get(k string) (interface{}, bool) {
 // whether the key was found.
 func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
 
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	if !found {
+		c.mu.RUnlock()
 		return nil, time.Time{}, false
 	}
 
 	item.mu.RLock()
-	defer item.mu.RUnlock()
 
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
+			item.mu.RUnlock()
+			c.mu.RUnlock()
 			return nil, time.Time{}, false
 		}
 
 		// Return the item and the expiration time
+		item.mu.RUnlock()
+		c.mu.RUnlock()
 		return item.Object, time.Unix(0, item.Expiration), true
 	}
 
@@ -175,20 +182,21 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 // whether the key was found.
 func (c *cache) GetWithExpirationUpdate(k string, d time.Duration) (interface{}, bool) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
 
 	item, found := c.items[k]
 	if !found {
+		c.mu.RUnlock()
 		return nil, false
 	}
 
 	// Don't call item.Expired() here since
 	// we write lock item.Expiration
 	item.mu.Lock()
-	defer item.mu.Unlock()
 
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
+			item.mu.Unlock()
+			c.mu.RUnlock()
 			return nil, false
 		}
 	}
@@ -200,6 +208,8 @@ func (c *cache) GetWithExpirationUpdate(k string, d time.Duration) (interface{},
 		c.items[k].Expiration = time.Now().Add(d).UnixNano()
 	}
 
+	item.mu.Unlock()
+	c.mu.RUnlock()
 	return item.Object, true
 }
 
@@ -1005,11 +1015,13 @@ func (c *cache) Save(w io.Writer) (err error) {
 		}
 	}()
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+
 	for _, v := range c.items {
 		gob.Register(v.Object)
 	}
 	err = enc.Encode(&c.items)
+
+	c.mu.RUnlock()
 	return
 }
 
@@ -1042,7 +1054,7 @@ func (c *cache) Load(r io.Reader) error {
 	err := dec.Decode(&items)
 	if err == nil {
 		c.mu.Lock()
-		defer c.mu.Unlock()
+
 		for k, v := range items {
 			ov, found := c.items[k]
 			if !found || ov.Expired() {
@@ -1050,6 +1062,7 @@ func (c *cache) Load(r io.Reader) error {
 			}
 		}
 	}
+	c.mu.Unlock()
 	return err
 }
 
@@ -1074,7 +1087,7 @@ func (c *cache) LoadFile(fname string) error {
 // Copies all unexpired items in the cache into a new map and returns it.
 func (c *cache) Items() map[string]*Item {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+
 	m := make(map[string]*Item, len(c.items))
 	for k, v := range c.items {
 		// "Inlining" of Expired
@@ -1086,6 +1099,8 @@ func (c *cache) Items() map[string]*Item {
 			Expiration: v.Expiration,
 		}
 	}
+
+	c.mu.RUnlock()
 	return m
 }
 
