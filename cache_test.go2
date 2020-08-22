@@ -1,4 +1,4 @@
-package cache
+package main
 
 import (
 	"bytes"
