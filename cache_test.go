@@ -2,12 +2,15 @@ package cache
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"runtime"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 type TestStruct struct {
@@ -65,6 +68,17 @@ func TestCache(t *testing.T) {
 		t.Error("x for c is nil")
 	} else if c2 := x.(float64); c2+1.2 != 4.7 {
 		t.Error("c2 (which should be 3.5) plus 1.2 does not equal 4.7; value:", c2)
+	}
+
+	// in Go we have to have a variable with a type to be able to get
+	// the size of the type
+	var a_size = 1
+	var b_size = "b"
+	var c_size = 3.5
+	size := tc.Size()
+	expected_size := int(unsafe.Sizeof(a_size)) + int(unsafe.Sizeof(b_size)) + len(b_size) + int(unsafe.Sizeof(c_size))
+	if size != expected_size {
+		t.Error("size (which should be", expected_size, "); value:", size)
 	}
 }
 
@@ -1768,4 +1782,60 @@ func TestGetWithExpiration(t *testing.T) {
 	if expiration.UnixNano() < time.Now().UnixNano() {
 		t.Error("expiration for e is in the past")
 	}
+}
+
+// countBytes from the KVStores
+func countBytes(items map[string]Item) int64 {
+	sum := int64(0)
+	for _, v := range items {
+		if buff, ok := v.Object.([]byte); ok {
+			sum += int64(len(buff))
+		}
+	}
+	return sum
+}
+
+func TestSizeSpeedTest(t *testing.T) {
+        if testing.Short() {
+                t.Skip()
+                fmt.Println("warning: Skipping slow TestSizeSpeed() -- do not use `-short` to not skip this speed tests.")
+                return
+        }
+
+	tc := New(DefaultExpiration, 0)
+
+	fmt.Print("Generate large cache ")
+	for i := 0; i < 100000; i++ {
+		if i % 1000 == 999 {
+			fmt.Print(".")
+		}
+		key := ""
+		key_size := rand.Uint32() % 15 + 5
+		for j := uint32(0); j < key_size; j++ {
+			key += string(rune(rand.Uint32() % 26 + 65))
+		}
+		value := ""
+		value_size := rand.Uint32() % 55 + 5
+		for j := uint32(0); j < value_size; j++ {
+			value += string(rune(rand.Uint32() % 26 + 65))
+		}
+		tc.Set(key, value, DefaultExpiration)
+	}
+	fmt.Println()
+
+	fmt.Print("Time 1,000 Size() calls: ")
+	start := time.Now()
+	for i := 0; i < 1000; i++ {
+		tc.Size()
+	}
+	end := time.Now()
+	fmt.Println("Size() x 1,000 took:", end.Sub(start))
+
+	fmt.Print("Time 1,000 countBytes(Items()) calls: ")
+	start = time.Now()
+	for i := 0; i < 1000; i++ {
+		countBytes(tc.Items())
+	}
+	end = time.Now()
+	fmt.Println("Size() x 1,000 took:", end.Sub(start))
 }

@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 type Item struct {
@@ -1033,6 +1034,57 @@ func (c *cache) LoadFile(fname string) error {
 	}
 	return fp.Close()
 }
+
+// Return current size of all values
+// WARNING: this function assumes all values can be converted to a buffer
+//          of bytes to gather their length
+func (c *cache) Size() (size int) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	size = 0
+	now := time.Now().UnixNano()
+	for _, v := range c.items {
+		// "Inlining" of Expired
+		if v.Expiration > 0 && now > v.Expiration {
+			continue
+		}
+		switch value := v.Object.(type) {
+		case bool:
+			size += int(unsafe.Sizeof(value))
+		case int:
+			size += int(unsafe.Sizeof(value))
+		case int8:
+			size += int(unsafe.Sizeof(value))
+		case int16:
+			size += int(unsafe.Sizeof(value))
+		case int32: // rune
+			size += int(unsafe.Sizeof(value))
+		case int64:
+			size += int(unsafe.Sizeof(value))
+		case uint:
+			size += int(unsafe.Sizeof(value))
+		case uint8: // byte
+			size += int(unsafe.Sizeof(value))
+		case uint16:
+			size += int(unsafe.Sizeof(value))
+		case uint32:
+			size += int(unsafe.Sizeof(value))
+		case uint64:
+			size += int(unsafe.Sizeof(value))
+		case uintptr:
+			size += int(unsafe.Sizeof(value))
+		case float32:
+			size += int(unsafe.Sizeof(value))
+		case float64:
+			size += int(unsafe.Sizeof(value))
+		case string:
+			size += int(unsafe.Sizeof(value))
+			size += len(value)
+		}
+	}
+	return
+}
+
 
 // Copies all unexpired items in the cache into a new map and returns it.
 func (c *cache) Items() map[string]Item {
