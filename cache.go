@@ -57,7 +57,15 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	if d > 0 {
 		e = time.Now().Add(d).UnixNano()
 	}
+
+	var item Item
+	var evicted bool
+
 	c.mu.Lock()
+	if c.onEvicted != nil {
+		item, evicted = c.items[k]
+	}
+
 	c.items[k] = Item{
 		Object:     x,
 		Expiration: e,
@@ -65,6 +73,11 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	// TODO: Calls to mu.Unlock are currently not deferred because defer
 	// adds ~200 ns (as of go1.)
 	c.mu.Unlock()
+
+	// try to call onEvicted if key existed before but it was expired before cleanup
+	if evicted && item.Expired() {
+		c.onEvicted(k, item.Object)
+	}
 }
 
 func (c *cache) set(k string, x interface{}, d time.Duration) {
