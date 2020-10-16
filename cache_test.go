@@ -1247,6 +1247,37 @@ func TestOnEvicted(t *testing.T) {
 	}
 }
 
+func TestOnEvictedCalledBeforeSet(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	expiry := 1 * time.Nanosecond
+
+	works := false
+	tc.OnEvicted(func(k string, v interface{}) {
+		if k == "foo" && v.(int) == 3 {
+
+			works = true
+		}
+		tc.Set("bar", 4, DefaultExpiration)
+	})
+
+	tc.Set("foo", 3, expiry)
+	if tc.onEvicted == nil {
+		t.Fatal("tc.onEvicted is nil")
+	}
+
+	// calling Set again with the same key should evict
+	// the item if different
+	tc.Set("foo", 5, DefaultExpiration)
+
+	x, _ := tc.Get("bar")
+	if !works {
+		t.Fatal("works bool not true")
+	}
+	if x.(int) != 4 {
+		t.Error("bar was not 4")
+	}
+}
+
 func TestCacheSerialization(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	testFillAndSerialize(t, tc)
