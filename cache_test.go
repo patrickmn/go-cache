@@ -1265,11 +1265,9 @@ func TestOnEvictedCalledBeforeSet(t *testing.T) {
 		t.Fatal("tc.onEvicted is nil")
 	}
 
-	// ensure item expires
-	time.Sleep(expiry)
-
-	// calling Set again should evict expired item
-	tc.Set("foo", 3, DefaultExpiration)
+	// calling Set again with the same key should evict
+	// the item if different
+	tc.Set("foo", 5, DefaultExpiration)
 
 	x, _ := tc.Get("bar")
 	if !works {

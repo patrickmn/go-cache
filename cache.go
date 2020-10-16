@@ -74,8 +74,8 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	// adds ~200 ns (as of go1.)
 	c.mu.Unlock()
 
-	// try to call onEvicted if key existed before but it was expired before cleanup
-	if evicted && item.Expired() {
+	// try to call onEvicted if key existed before but the item is different
+	if evicted && item.Object != x {
 		c.onEvicted(k, item.Object)
 	}
 }
