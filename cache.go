@@ -922,6 +922,27 @@ func (c *cache) delete(k string) (interface{}, bool) {
 	return nil, false
 }
 
+func (c *cache) IncrementExpiration(k string, d time.Duration) error {
+	c.mu.Lock()
+	v, found := c.items[k]
+	if !found || v.Expired() {
+		c.mu.Unlock()
+		return fmt.Errorf("key %s not found.", k)
+	}
+
+	var e int64
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+	if d > 0 {
+		e = time.Now().Add(d).UnixNano()
+	}
+	v.Expiration = e
+
+	c.mu.Unlock()
+	return nil
+}
+
 type keyAndValue struct {
 	key   string
 	value interface{}
