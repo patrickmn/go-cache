@@ -135,6 +135,17 @@ func (c *cache) Get(k string) (interface{}, bool) {
 	return item.Object, true
 }
 
+//GetMultipleItems returns an array of items corresponding to the input array
+func (c *cache) GetMultipleItems(values []string) []interface{} {
+	length := len(values)
+	var items = make([]interface{}, length)
+	for i := 0; i < length; i++ {
+		item, _ := c.Get(values[i])
+		items[i] = item
+	}
+	return items
+}
+
 // GetWithExpiration returns an item and its expiration time from the cache.
 // It returns the item or nil, the expiration time if one is set (if the item
 // never expires a zero value for time.Time is returned), and a bool indicating
