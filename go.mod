@@ -1,3 +1,3 @@
-module githug.com/patrickmn/cache
+module githug.com/mingjingc/cache
 
 go 1.16
