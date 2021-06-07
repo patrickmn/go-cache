@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"runtime"
 	"sync"
 	"time"
@@ -15,7 +16,7 @@ type Item struct {
 	Expiration int64
 }
 
-// Returns true if the item has expired.
+// Expired Returns true if the item has expired.
 func (item Item) Expired() bool {
 	if item.Expiration == 0 {
 		return false
@@ -24,9 +25,9 @@ func (item Item) Expired() bool {
 }
 
 const (
-	// For use with functions that take an expiration time.
+	// NoExpiration For use with functions that take an expiration time.
 	NoExpiration time.Duration = -1
-	// For use with functions that take an expiration time. Equivalent to
+	// DefaultExpiration For use with functions that take an expiration time. Equivalent to
 	// passing in the same expiration duration as was given to New() or
 	// NewFrom() when the cache was created (e.g. 5 minutes.)
 	DefaultExpiration time.Duration = 0
@@ -45,7 +46,7 @@ type cache struct {
 	janitor           *janitor
 }
 
-// Add an item to the cache, replacing any existing item. If the duration is 0
+// Set Add an item to the cache, replacing any existing item. If the duration is 0
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
@@ -908,6 +909,16 @@ func (c *cache) Delete(k string) {
 	c.mu.Unlock()
 	if evicted {
 		c.onEvicted(k, v)
+	}
+}
+
+// Delete an item from the cache by regex rule
+func (c *cache) DeleteRegex(rule string) {
+	re, _ := regexp.Compile(rule)
+	for k := range c.items {
+		if re.MatchString(k) {
+			c.Delete(k)
+		}
 	}
 }
 
