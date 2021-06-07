@@ -1,3 +1,3 @@
 module github.com/vmpartner/go-cache
 
-go 1.12
+go 1.16
