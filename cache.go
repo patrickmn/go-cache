@@ -30,6 +30,8 @@ const (
 	// passing in the same expiration duration as was given to New() or
 	// NewFrom() when the cache was created (e.g. 5 minutes.)
 	DefaultExpiration time.Duration = 0
+	// For use when you do not want the cache to be limited by element count
+	NoMaxElements int = -1
 )
 
 type Cache struct {
@@ -43,6 +45,7 @@ type cache struct {
 	mu                sync.RWMutex
 	onEvicted         func(string, interface{})
 	janitor           *janitor
+	maxElements       int
 }
 
 // Add an item to the cache, replacing any existing item. If the duration is 0
@@ -58,6 +61,11 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 		e = time.Now().Add(d).UnixNano()
 	}
 	c.mu.Lock()
+	if !c.canSet(k) {
+		c.mu.Unlock()
+		return
+	}
+
 	c.items[k] = Item{
 		Object:     x,
 		Expiration: e,
@@ -67,7 +75,21 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Unlock()
 }
 
+// Check to see if this element is going to be replaced or is it going to be
+// added. If it's added, then we can't exceed the maxElements set by the user.
+func (c *cache) canSet(k string) bool {
+	if c.maxElements > 0 && len(c.items) >= c.maxElements {
+		if _, found := c.items[k]; !found {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *cache) set(k string, x interface{}, d time.Duration) {
+	// For optimization, we don't need to check canSet here. This function is
+	// only called from two places that do their own checks. Since we care about
+	// speed, let's not bother testing here.
 	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
@@ -1099,19 +1121,20 @@ func runJanitor(c *cache, ci time.Duration) {
 	go j.Run(c)
 }
 
-func newCache(de time.Duration, m map[string]Item) *cache {
+func newCache(de time.Duration, m map[string]Item, maxElements int) *cache {
 	if de == 0 {
 		de = -1
 	}
 	c := &cache{
 		defaultExpiration: de,
 		items:             m,
+		maxElements:       maxElements,
 	}
 	return c
 }
 
-func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) *Cache {
-	c := newCache(de, m)
+func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item, maxElements int) *Cache {
+	c := newCache(de, m, maxElements)
 	// This trick ensures that the janitor goroutine (which--granted it
 	// was enabled--is running DeleteExpired on c forever) does not keep
 	// the returned C object from being garbage collected. When it is
@@ -1131,8 +1154,12 @@ func newCacheWithJanitor(de time.Duration, ci time.Duration, m map[string]Item) 
 // manually. If the cleanup interval is less than one, expired items are not
 // deleted from the cache before calling c.DeleteExpired().
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
+	return NewWithMaximumElements(defaultExpiration, cleanupInterval, NoMaxElements)
+}
+
+func NewWithMaximumElements(defaultExpiration, cleanupInterval time.Duration, maxElements int) *Cache {
 	items := make(map[string]Item)
-	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
+	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, maxElements)
 }
 
 // Return a new cache with a given default expiration duration and cleanup
@@ -1157,5 +1184,9 @@ func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 // map retrieved with c.Items(), and to register those same types before
 // decoding a blob containing an items map.
 func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]Item) *Cache {
-	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items)
+	return NewFromWithMaximumElements(defaultExpiration, cleanupInterval, items, NoMaxElements)
+}
+
+func NewFromWithMaximumElements(defaultExpiration, cleanupInterval time.Duration, items map[string]Item, maxElements int) *Cache {
+	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, maxElements)
 }
