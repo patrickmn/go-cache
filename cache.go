@@ -1,10 +1,10 @@
 package cache
 
 import (
-//	"encoding/gob"
+	"encoding/gob"
 	"fmt"
-//	"io"
-//	"os"
+	"io"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -193,31 +193,107 @@ type Decrementable interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~float32 | ~float64
 }
 
-func Increment[I Incrementable](c *Cache[I], k string, n I) error {
+
+func (c *cache[T]) Increment(k string, n int64) (T, error) {
 	c.mu.Lock()
+	var zero T
 	v, found := c.items[k]
 	if !found || v.Expired() {
 		c.mu.Unlock()
-		return fmt.Errorf("Item %s not found", k)
+		return zero, fmt.Errorf("Item %s not found", k)
 	}
-	v.Object = v.Object + n
+	// Generics does not (currently?) support type switching
+	// To workaround, we convert the value into a interface{}, and switching on that
+	var untypedValue interface{}
+	
+	untypedValue = v.Object
+	switch untypedValue.(type) {
+	case int:
+		untypedValue = untypedValue.(int) + int(n)
+	case int8:
+		untypedValue = untypedValue.(int8) + int8(n)
+	case int16:
+		untypedValue = untypedValue.(int16) + int16(n)
+	case int32:
+		untypedValue= untypedValue.(int32) + int32(n)
+	case int64:
+		untypedValue = untypedValue.(int64) + n
+	case uint:
+		untypedValue = untypedValue.(uint) + uint(n)
+	case uintptr:
+		untypedValue = untypedValue.(uintptr) + uintptr(n)
+	case uint8:
+		untypedValue = untypedValue.(uint8) + uint8(n)
+	case uint16:
+		untypedValue = untypedValue.(uint16) + uint16(n)
+	case uint32:
+		untypedValue = untypedValue.(uint32) + uint32(n)
+	case uint64:
+		untypedValue = untypedValue.(uint64) + uint64(n)
+	case float32:
+		untypedValue = untypedValue.(float32) + float32(n)
+	case float64:
+		untypedValue = untypedValue.(float64) + float64(n)
+	default:
+		c.mu.Unlock()
+		return zero, fmt.Errorf("The value for %s is not an integer", k)
+	}
+	v.Object = untypedValue.(T)
 	c.items[k] = v
 	c.mu.Unlock()
-	return nil
+	return zero, nil
 }
 
-func Decrement[D Decrementable](c *Cache[D], k string, n D) error {
+func (c *cache[T]) Decrement(k string, n int64) (T, error) {
 	c.mu.Lock()
+	var zero T
 	v, found := c.items[k]
 	if !found || v.Expired() {
 		c.mu.Unlock()
-		return fmt.Errorf("Item %s not found", k)
+		return zero, fmt.Errorf("Item %s not found", k)
 	}
-	v.Object = v.Object - n
+	// Generics does not (currently?) support type switching
+	// To workaround, we convert the value into a interface{}, and switching on that
+	var untypedValue interface{}
+	
+	untypedValue = v.Object
+	switch untypedValue.(type) {
+	case int:
+		untypedValue = untypedValue.(int) - int(n)
+	case int8:
+		untypedValue = untypedValue.(int8) - int8(n)
+	case int16:
+		untypedValue = untypedValue.(int16) - int16(n)
+	case int32:
+		untypedValue= untypedValue.(int32) - int32(n)
+	case int64:
+		untypedValue = untypedValue.(int64) - n
+	case uint:
+		untypedValue = untypedValue.(uint) - uint(n)
+	case uintptr:
+		untypedValue = untypedValue.(uintptr) - uintptr(n)
+	case uint8:
+		untypedValue = untypedValue.(uint8) - uint8(n)
+	case uint16:
+		untypedValue = untypedValue.(uint16) - uint16(n)
+	case uint32:
+		untypedValue = untypedValue.(uint32) - uint32(n)
+	case uint64:
+		untypedValue = untypedValue.(uint64) - uint64(n)
+	case float32:
+		untypedValue = untypedValue.(float32) - float32(n)
+	case float64:
+		untypedValue = untypedValue.(float64) - float64(n)
+	default:
+		c.mu.Unlock()
+		return zero, fmt.Errorf("The value for %s is not an integer", k)
+	}
+	v.Object = untypedValue.(T)
 	c.items[k] = v
 	c.mu.Unlock()
-	return nil
+	return zero, nil
 }
+
 
 // Delete an item from the cache. Does nothing if the key is not in the cache.
 func (c *cache[T]) Delete(k string) {
@@ -275,12 +351,12 @@ func (c *cache[T]) OnEvicted(f func(string, T)) {
 	c.mu.Unlock()
 }
 
-/*
+
 // Write the cache's items (using Gob) to an io.Writer.
 //
 // NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
 // documentation for NewFrom().)
-func (c *cache) Save(w io.Writer) (err error) {
+func (c *cache[T]) Save(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
 	defer func() {
 		if x := recover(); x != nil {
@@ -301,7 +377,7 @@ func (c *cache) Save(w io.Writer) (err error) {
 //
 // NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
 // documentation for NewFrom().)
-func (c *cache) SaveFile(fname string) error {
+func (c *cache[T]) SaveFile(fname string) error {
 	fp, err := os.Create(fname)
 	if err != nil {
 		return err
@@ -319,9 +395,9 @@ func (c *cache) SaveFile(fname string) error {
 //
 // NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
 // documentation for NewFrom().)
-func (c *cache) Load(r io.Reader) error {
+func (c *cache[T]) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
-	items := map[string]Item{}
+	items := map[string]Item[T]{}
 	err := dec.Decode(&items)
 	if err == nil {
 		c.mu.Lock()
@@ -341,7 +417,7 @@ func (c *cache) Load(r io.Reader) error {
 //
 // NOTE: This method is deprecated in favor of c.Items() and NewFrom() (see the
 // documentation for NewFrom().)
-func (c *cache) LoadFile(fname string) error {
+func (c *cache[T]) LoadFile(fname string) error {
 	fp, err := os.Open(fname)
 	if err != nil {
 		return err
@@ -353,7 +429,7 @@ func (c *cache) LoadFile(fname string) error {
 	}
 	return fp.Close()
 }
-*/
+
 
 // Copies all unexpired items in the cache into a new map and returns it.
 func (c *cache[T]) Items() map[string]Item[T] {

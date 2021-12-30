@@ -1,5 +1,6 @@
 package cache
 
+/*
 import (
 	"crypto/rand"
 	"math"
@@ -190,3 +191,4 @@ func unexportedNewSharded(defaultExpiration, cleanupInterval time.Duration, shar
 	}
 	return SC
 }
+*/
