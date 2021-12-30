@@ -184,17 +184,15 @@ func (c *cache[T]) get(k string) (T, bool) {
 	return item.Object, true
 }
 
-type Incrementable interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uintptr | ~uint | ~uint8 | ~uint32 | ~uint64 | ~float32 | ~float64
-}
-
-// Can't decrement unsigned values
-type Decrementable interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~float32 | ~float64
-}
-
-
+// Increment and return an item of type int, int8, int16, int32, int64, uintptr, uint,
+// uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
+// item's value is not an integer, if it was not found, or if it is not
+// possible to increment it by n.
 func (c *cache[T]) Increment(k string, n int64) (T, error) {
+
+	// TODO: Consider adding a constraint to avoid the type switch and provide
+	// compile-time safety
+	
 	c.mu.Lock()
 	var zero T
 	v, found := c.items[k]
@@ -244,7 +242,14 @@ func (c *cache[T]) Increment(k string, n int64) (T, error) {
 	return zero, nil
 }
 
+// Decrement and return an item of type int, int8, int16, int32, int64, uintptr, uint,
+// uint8, uint32, or uint64, float32 or float64 by n. Returns an error if the
+// item's value is not an integer, if it was not found, or if it is not
+// possible to decrement it by n.
 func (c *cache[T]) Decrement(k string, n int64) (T, error) {
+
+	// TODO: Consider adding a constraint to avoid the type switch and provide
+	// compile-time safety
 	c.mu.Lock()
 	var zero T
 	v, found := c.items[k]
