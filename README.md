@@ -45,34 +45,10 @@ func main() {
 		fmt.Println(foo)
 	}
 
-	// Since Go is statically typed, and cache values can be anything, type
-	// assertion is needed when values are being passed to functions that don't
-	// take arbitrary types, (i.e. interface{}). The simplest way to do this for
-	// values which will only be used once--e.g. for passing to another
-	// function--is:
-	foo, found := c.Get("foo")
-	if found {
-		MyFunction(foo.(string))
-	}
-
-	// This gets tedious if the value is used several times in the same function.
-	// You might do either of the following instead:
-	if x, found := c.Get("foo"); found {
-		foo := x.(string)
-		// ...
-	}
-	// or
-	var foo string
-	if x, found := c.Get("foo"); found {
-		foo = x.(string)
-	}
-	// ...
-	// foo can then be passed around freely as a string
-
 	// Want performance? Store pointers!
 	c.Set("foo", &MyStruct, cache.DefaultExpiration)
 	if x, found := c.Get("foo"); found {
-		foo := x.(*MyStruct)
+		foo := x
 			// ...
 	}
 }
