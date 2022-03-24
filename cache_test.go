@@ -19,17 +19,17 @@ func TestCache(t *testing.T) {
 	tc := New[string, int](DefaultExpiration, 0)
 
 	a, found := tc.Get("a")
-	if found || a != nil {
+	if found || a != 0 {
 		t.Error("Getting A found value that shouldn't exist:", a)
 	}
 
 	b, found := tc.Get("b")
-	if found || b != nil {
+	if found || b != 0 {
 		t.Error("Getting B found value that shouldn't exist:", b)
 	}
 
 	c, found := tc.Get("c")
-	if found || c != nil {
+	if found || c != 0 {
 		t.Error("Getting C found value that shouldn't exist:", c)
 	}
 
@@ -39,9 +39,9 @@ func TestCache(t *testing.T) {
 	if !found {
 		t.Error("a was not found while getting a2")
 	}
-	if x == nil {
-		t.Error("x for a is nil")
-	} else if a2 := *x; a2+2 != 3 {
+	if x == 0 {
+		t.Error("x for a is zero value")
+	} else if a2 := x; a2+2 != 3 {
 		t.Error("a2 (which should be 1) plus 2 does not equal 3; value:", a2)
 	}
 }
@@ -100,14 +100,14 @@ func TestNewFrom(t *testing.T) {
 	if !found {
 		t.Fatal("Did not find a")
 	}
-	if *a != 1 {
+	if a != 1 {
 		t.Fatal("a is not 1")
 	}
 	b, found := tc.Get("b")
 	if !found {
 		t.Fatal("Did not find b")
 	}
-	if *b != 2 {
+	if b != 2 {
 		t.Fatal("b is not 2")
 	}
 }
@@ -163,8 +163,8 @@ func TestDelete(t *testing.T) {
 	if found {
 		t.Error("foo was found, but it should have been deleted")
 	}
-	if x != nil {
-		t.Error("x is not nil:", x)
+	if x != "" {
+		t.Error("x is not zero value:", x)
 	}
 }
 
@@ -187,15 +187,15 @@ func TestFlush(t *testing.T) {
 	if found {
 		t.Error("foo was found, but it should have been deleted")
 	}
-	if x != nil {
-		t.Error("x is not nil:", x)
+	if x != "" {
+		t.Error("x is not zero value:", x)
 	}
 	x, found = tc.Get("baz")
 	if found {
 		t.Error("baz was found, but it should have been deleted")
 	}
-	if x != nil {
-		t.Error("x is not nil:", x)
+	if x != "" {
+		t.Error("x is not zero value:", x)
 	}
 }
 
@@ -217,7 +217,7 @@ func TestOnEvicted(t *testing.T) {
 	if !works {
 		t.Error("works bool not true")
 	}
-	if *x != 4 {
+	if x != 4 {
 		t.Error("bar was not 4")
 	}
 }
@@ -269,7 +269,7 @@ func testFillAndSerialize(t *testing.T, tc *Cache[string, any]) {
 	if !found {
 		t.Error("a was not found")
 	}
-	if (*a).(string) != "a" {
+	if a.(string) != "a" {
 		t.Error("a is not a")
 	}
 
@@ -277,7 +277,7 @@ func testFillAndSerialize(t *testing.T, tc *Cache[string, any]) {
 	if !found {
 		t.Error("b was not found")
 	}
-	if (*b).(string) != "b" {
+	if b.(string) != "b" {
 		t.Error("b is not b")
 	}
 
@@ -285,7 +285,7 @@ func testFillAndSerialize(t *testing.T, tc *Cache[string, any]) {
 	if !found {
 		t.Error("c was not found")
 	}
-	if (*c).(string) != "c" {
+	if c.(string) != "c" {
 		t.Error("c is not c")
 	}
 
@@ -299,7 +299,7 @@ func testFillAndSerialize(t *testing.T, tc *Cache[string, any]) {
 	if !found {
 		t.Error("*struct was not found")
 	}
-	if (*s1).(*TestStruct).Num != 1 {
+	if s1.(*TestStruct).Num != 1 {
 		t.Error("*struct.Num is not 1")
 	}
 
@@ -307,7 +307,7 @@ func testFillAndSerialize(t *testing.T, tc *Cache[string, any]) {
 	if !found {
 		t.Error("[]struct was not found")
 	}
-	s2r := (*s2).([]TestStruct)
+	s2r := s2.([]TestStruct)
 	if len(s2r) != 2 {
 		t.Error("Length of s2r is not 2")
 	}
@@ -322,7 +322,7 @@ func testFillAndSerialize(t *testing.T, tc *Cache[string, any]) {
 	if !found {
 		t.Error("[]*struct was not found")
 	}
-	s3r := (*s3).([]*TestStruct)
+	s3r := s3.([]*TestStruct)
 	if len(s3r) != 2 {
 		t.Error("Length of s3r is not 2")
 	}
@@ -337,7 +337,7 @@ func testFillAndSerialize(t *testing.T, tc *Cache[string, any]) {
 	if !found {
 		t.Error("structception was not found")
 	}
-	s4r := (*s4).(*TestStruct)
+	s4r := s4.(*TestStruct)
 	if len(s4r.Children) != 2 {
 		t.Error("Length of s4r.Children is not 2")
 	}
@@ -371,9 +371,8 @@ func TestFileSerialization(t *testing.T) {
 	if !found {
 		t.Error("a was not found")
 	}
-	astr := *a
-	if astr != "aa" {
-		if astr == "a" {
+	if a != "aa" {
+		if a == "a" {
 			t.Error("a was overwritten")
 		} else {
 			t.Error("a is not aa")
@@ -383,7 +382,7 @@ func TestFileSerialization(t *testing.T) {
 	if !found {
 		t.Error("b was not found")
 	}
-	if *b != "b" {
+	if b != "b" {
 		t.Error("b is not b")
 	}
 }
@@ -672,7 +671,7 @@ func TestGetWithExpiration(t *testing.T) {
 	}
 	if x == nil {
 		t.Error("x for a is nil")
-	} else if a2 := (*x).(int); a2+2 != 3 {
+	} else if a2 := x.(int); a2+2 != 3 {
 		t.Error("a2 (which should be 1) plus 2 does not equal 3; value:", a2)
 	}
 	if !expiration.IsZero() {
@@ -685,7 +684,7 @@ func TestGetWithExpiration(t *testing.T) {
 	}
 	if x == nil {
 		t.Error("x for b is nil")
-	} else if b2 := (*x).(string); b2+"B" != "bB" {
+	} else if b2 := x.(string); b2+"B" != "bB" {
 		t.Error("b2 (which should be b) plus B does not equal bB; value:", b2)
 	}
 	if !expiration.IsZero() {
@@ -698,7 +697,7 @@ func TestGetWithExpiration(t *testing.T) {
 	}
 	if x == nil {
 		t.Error("x for c is nil")
-	} else if c2 := (*x).(float64); c2+1.2 != 4.7 {
+	} else if c2 := x.(float64); c2+1.2 != 4.7 {
 		t.Error("c2 (which should be 3.5) plus 1.2 does not equal 4.7; value:", c2)
 	}
 	if !expiration.IsZero() {
@@ -711,7 +710,7 @@ func TestGetWithExpiration(t *testing.T) {
 	}
 	if x == nil {
 		t.Error("x for d is nil")
-	} else if d2 := (*x).(int); d2+2 != 3 {
+	} else if d2 := x.(int); d2+2 != 3 {
 		t.Error("d (which should be 1) plus 2 does not equal 3; value:", d2)
 	}
 	if !expiration.IsZero() {
@@ -724,7 +723,7 @@ func TestGetWithExpiration(t *testing.T) {
 	}
 	if x == nil {
 		t.Error("x for e is nil")
-	} else if e2 := (*x).(int); e2+2 != 3 {
+	} else if e2 := x.(int); e2+2 != 3 {
 		t.Error("e (which should be 1) plus 2 does not equal 3; value:", e2)
 	}
 	if expiration.UnixNano() != tc.items["e"].Expiration {

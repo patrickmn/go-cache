@@ -115,68 +115,74 @@ func (c *cache[K, V]) Replace(k K, x V, d time.Duration) error {
 	return nil
 }
 
-// Get an item from the cache. Returns the item or nil, and a bool indicating
+// Get an item from the cache. Returns the item or zero value, and a bool indicating
 // whether the key was found.
-func (c *cache[K, V]) Get(k K) (*V, bool) {
+func (c *cache[K, V]) Get(k K) (V, bool) {
+	var zeroValue V
+
 	c.mu.RLock()
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	if !found {
 		c.mu.RUnlock()
-		return nil, false
+		return zeroValue, false
 	}
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
 			c.mu.RUnlock()
-			return nil, false
+			return zeroValue, false
 		}
 	}
 	c.mu.RUnlock()
-	return &item.Object, true
+	return item.Object, true
 }
 
 // GetWithExpiration returns an item and its expiration time from the cache.
-// It returns the item or nil, the expiration time if one is set (if the item
+// It returns the item or zero value, the expiration time if one is set (if the item
 // never expires a zero value for time.Time is returned), and a bool indicating
 // whether the key was found.
-func (c *cache[K, V]) GetWithExpiration(k K) (*V, time.Time, bool) {
+func (c *cache[K, V]) GetWithExpiration(k K) (V, time.Time, bool) {
+	var zeroValue V
+
 	c.mu.RLock()
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
 	if !found {
 		c.mu.RUnlock()
-		return nil, time.Time{}, false
+		return zeroValue, time.Time{}, false
 	}
 
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
 			c.mu.RUnlock()
-			return nil, time.Time{}, false
+			return zeroValue, time.Time{}, false
 		}
 
 		// Return the item and the expiration time
 		c.mu.RUnlock()
-		return &item.Object, time.Unix(0, item.Expiration), true
+		return item.Object, time.Unix(0, item.Expiration), true
 	}
 
 	// If expiration <= 0 (i.e. no expiration time set) then return the item
 	// and a zeroed time.Time
 	c.mu.RUnlock()
-	return &item.Object, time.Time{}, true
+	return item.Object, time.Time{}, true
 }
 
-func (c *cache[K, V]) get(k K) (*V, bool) {
+func (c *cache[K, V]) get(k K) (V, bool) {
+	var zeroValue V
+
 	item, found := c.items[k]
 	if !found {
-		return nil, false
+		return zeroValue, false
 	}
 	// "Inlining" of Expired
 	if item.Expiration > 0 {
 		if time.Now().UnixNano() > item.Expiration {
-			return nil, false
+			return zeroValue, false
 		}
 	}
-	return &item.Object, true
+	return item.Object, true
 }
 
 // Delete an item from the cache. Does nothing if the key is not in the cache.
@@ -185,19 +191,20 @@ func (c *cache[K, V]) Delete(k K) {
 	v, evicted := c.delete(k)
 	c.mu.Unlock()
 	if evicted {
-		c.onEvicted(k, *v)
+		c.onEvicted(k, v)
 	}
 }
 
-func (c *cache[K, V]) delete(k K) (*V, bool) {
+func (c *cache[K, V]) delete(k K) (V, bool) {
+	var zeroValue V
 	if c.onEvicted != nil {
 		if v, found := c.items[k]; found {
 			delete(c.items, k)
-			return &v.Object, true
+			return v.Object, true
 		}
 	}
 	delete(c.items, k)
-	return nil, false
+	return zeroValue, false
 }
 
 type keyAndValue[K comparable, V any] struct {
@@ -215,7 +222,7 @@ func (c *cache[K, V]) DeleteExpired() {
 		if v.Expiration > 0 && now > v.Expiration {
 			ov, evicted := c.delete(k)
 			if evicted {
-				evictedItems = append(evictedItems, keyAndValue[K, V]{k, *ov})
+				evictedItems = append(evictedItems, keyAndValue[K, V]{k, ov})
 			}
 		}
 	}

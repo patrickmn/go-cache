@@ -17,18 +17,19 @@ type orderedCache[K comparable, V constraints.Ordered] struct {
 
 // Increment an item of type by n.
 // Returns incremented item or an error if it was not found.
-func (c *orderedCache[K, V]) Increment(k K, n V) (*V, error) {
+func (c *orderedCache[K, V]) Increment(k K, n V) (V, error) {
+	var zeroValue V
 	c.mu.Lock()
 	v, found := c.items[k]
 	if !found || v.Expired() {
 		c.mu.Unlock()
-		return nil, fmt.Errorf("Item %v not found", k)
+		return zeroValue, fmt.Errorf("Item %v not found", k)
 	}
 	res := v.Object + n
 	v.Object = res
 	c.items[k] = v
 	c.mu.Unlock()
-	return &res, nil
+	return res, nil
 }
 
 // Return a new ordered cache with a given default expiration duration and cleanup

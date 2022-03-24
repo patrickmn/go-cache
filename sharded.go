@@ -80,7 +80,7 @@ func (sc *shardedCache[V]) Replace(k string, x V, d time.Duration) error {
 	return sc.bucket(k).Replace(k, x, d)
 }
 
-func (sc *shardedCache[V]) Get(k string) (*V, bool) {
+func (sc *shardedCache[V]) Get(k string) (V, bool) {
 	return sc.bucket(k).Get(k)
 }
 

@@ -9,14 +9,14 @@ func TestIncrementWithInt(t *testing.T) {
 	if err != nil {
 		t.Error("Error incrementing:", err)
 	}
-	if *n != 3 {
+	if n != 3 {
 		t.Error("Returned number is not 3:", n)
 	}
 	x, found := tc.Get("tint")
 	if !found {
 		t.Error("tint was not found")
 	}
-	if *x != 3 {
+	if x != 3 {
 		t.Error("tint is not 3:", x)
 	}
 }
@@ -28,14 +28,14 @@ func TestIncrementInt8(t *testing.T) {
 	if err != nil {
 		t.Error("Error decrementing:", err)
 	}
-	if *n != 3 {
+	if n != 3 {
 		t.Error("Returned number is not 3:", n)
 	}
 	x, found := tc.Get("int8")
 	if !found {
 		t.Error("int8 was not found")
 	}
-	if *x != 3 {
+	if x != 3 {
 		t.Error("int8 is not 3:", x)
 	}
 }
@@ -47,13 +47,12 @@ func TestIncrementOverflowInt(t *testing.T) {
 	if err != nil {
 		t.Error("Error incrementing int8:", err)
 	}
-	if *n != -128 {
+	if n != -128 {
 		t.Error("Returned number is not -128:", n)
 	}
 	x, _ := tc.Get("int8")
-	int8 := *x
-	if int8 != -128 {
-		t.Error("int8 did not overflow as expected; value:", int8)
+	if x != -128 {
+		t.Error("int8 did not overflow as expected; value:", x)
 	}
 
 }
@@ -65,13 +64,12 @@ func TestIncrementOverflowUint(t *testing.T) {
 	if err != nil {
 		t.Error("Error incrementing int8:", err)
 	}
-	if *n != 0 {
+	if n != 0 {
 		t.Error("Returned number is not 0:", n)
 	}
 	x, _ := tc.Get("uint8")
-	uint8 := *x
-	if uint8 != 0 {
-		t.Error("uint8 did not overflow as expected; value:", uint8)
+	if x != 0 {
+		t.Error("uint8 did not overflow as expected; value:", x)
 	}
 }
 
