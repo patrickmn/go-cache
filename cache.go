@@ -1064,7 +1064,12 @@ func (c *cache) ItemCount() int {
 // Delete all items from the cache.
 func (c *cache) Flush() {
 	c.mu.Lock()
-	c.items = map[string]Item{}
+	for k := range c.items {
+		v, evicted := c.delete(k)
+		if evicted {
+			c.onEvicted(k, v)
+		}
+	}
 	c.mu.Unlock()
 }
 
