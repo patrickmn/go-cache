@@ -1,23 +1,29 @@
-package go-cache
+package cache
+
+import (
+	"errors"
+	"fmt"
+)
 
 const (
 	errInvalidKey = "type:[invalid_key] key:[%s]"
 )
-type callbackFunc func(key string)(interface{},error)
+
+type callbackFunc func(key string) (interface{}, error)
 
 type fetcher struct {
-	cb map[string]callbackFunc
+	cb        map[string]callbackFunc
 	prefixLen int
 }
 
 func NewFetcher(prefixLen int) *fetcher {
 	return &fetcher{
-		cb : make(map[string]callbackFunc),
+		cb:        make(map[string]callbackFunc),
 		prefixLen: prefixLen,
 	}
 }
 
-func (f *fetcher) Register(keyPrefix string, cbf callbackFunc) bool{
+func (f *fetcher) Register(keyPrefix string, cbf callbackFunc) bool {
 	if len(keyPrefix) != f.prefixLen {
 		return false
 	}
@@ -25,31 +31,30 @@ func (f *fetcher) Register(keyPrefix string, cbf callbackFunc) bool{
 	return true
 }
 
-func (f *fetcher) execute(key string) (interface{},error) {
+func (f *fetcher) Execute(key string) (interface{}, error) {
 	if len(key) < f.prefixLen {
-		return nil, fmt.Errorf(errInvalidKey,key)
+		return nil, errors.New("Invalid Key " + key)
 	}
 	keyPrefix := key[:f.prefixLen]
 	cbf, ok := f.cb[keyPrefix]
 	if !ok {
-		return nil, fmt.Errorf(errInvalidKey,key)
+		return nil, fmt.Errorf(errInvalidKey, key)
 	}
 	return cbf(key)
 }
-
 
 /*
 
 //header bidding
 sample keys
 
-Key_Prefix_PUB_SLOT_INFO  = "AAA00"
+Key_Prefix_PUB_SLOT_INFO  = "AAA00" -> DB
 Key_Prefix_PUB_HB_PARTNER = "AAB00"
 Key_Prefix_PubAdunitConfig = "AAC00"
 Key_Prefix_PubSlotHashInfo = "AAD00"
 Key_Prefix_PubSlotRegex    = "AAE00"
 Key_Prefix_PubSlotNameHash = "AAF00"
-Key_Prefix_PubVASTTags     = "AAG00"
+Key_Prefix_PubVASTTags     = "AAG00" -> DBPubVasttags(key string) (interface,error)
 
 
 PUB_SLOT_INFO  = Key_Prefix_PUB_SLOT_INFO + "_%d_%d_%d_%d" // publisher slot mapping at publisher, profile, display version and adapter level
@@ -64,6 +69,7 @@ func DBGetVASTTags(key string) (interface{},error) {
 	strings.Split(key,"_")
 	key[0] // keyprefix
 	key[1] //publisherid
+	return GetVastTag(rtb req, pub ID, comn etc)
 }
 
 //hb
@@ -75,10 +81,10 @@ type AsyncCache struct {
 	ks *keystatus
 }
 
-func (c *AsycCache) aget(key string) {
-	data, err := c.f.execute(key)
+func (ac *AsyncCache) aget(key string) {
+	data, err := ac.f.execute(key)
 	if err != nil {
-		c.c.set(key, data)
+		ac.c.set(key, data)
 	}
 }
 */
