@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -33,7 +32,7 @@ func (f *fetcher) Register(keyPrefix string, cbf callbackFunc) bool {
 
 func (f *fetcher) Execute(key string) (interface{}, error) {
 	if len(key) < f.prefixLen {
-		return nil, errors.New("Invalid Key " + key)
+		return nil, fmt.Errorf(errInvalidKey, key)
 	}
 	keyPrefix := key[:f.prefixLen]
 	cbf, ok := f.cb[keyPrefix]
