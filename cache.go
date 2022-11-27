@@ -11,7 +11,7 @@ import (
 )
 
 type Item struct {
-	Object     interface{}
+	Object     any
 	Expiration int64
 }
 
@@ -41,14 +41,14 @@ type cache struct {
 	defaultExpiration time.Duration
 	items             map[string]Item
 	mu                sync.RWMutex
-	onEvicted         func(string, interface{})
+	onEvicted         func(string, any)
 	janitor           *janitor
 }
 
 // Add an item to the cache, replacing any existing item. If the duration is 0
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
-func (c *cache) Set(k string, x interface{}, d time.Duration) {
+func (c *cache) Set(k string, x any, d time.Duration) {
 	// "Inlining" of set
 	var e int64
 	if d == DefaultExpiration {
@@ -67,7 +67,7 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Unlock()
 }
 
-func (c *cache) set(k string, x interface{}, d time.Duration) {
+func (c *cache) set(k string, x any, d time.Duration) {
 	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
@@ -83,13 +83,13 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 
 // Add an item to the cache, replacing any existing item, using the default
 // expiration.
-func (c *cache) SetDefault(k string, x interface{}) {
+func (c *cache) SetDefault(k string, x any) {
 	c.Set(k, x, DefaultExpiration)
 }
 
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
-func (c *cache) Add(k string, x interface{}, d time.Duration) error {
+func (c *cache) Add(k string, x any, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
 	if found {
@@ -103,7 +103,7 @@ func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 
 // Set a new value for the cache key only if it already exists, and the existing
 // item hasn't expired. Returns an error otherwise.
-func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
+func (c *cache) Replace(k string, x any, d time.Duration) error {
 	c.mu.Lock()
 	_, found := c.get(k)
 	if !found {
@@ -117,7 +117,7 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
-func (c *cache) Get(k string) (interface{}, bool) {
+func (c *cache) Get(k string) (any, bool) {
 	c.mu.RLock()
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
@@ -139,7 +139,7 @@ func (c *cache) Get(k string) (interface{}, bool) {
 // It returns the item or nil, the expiration time if one is set (if the item
 // never expires a zero value for time.Time is returned), and a bool indicating
 // whether the key was found.
-func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
+func (c *cache) GetWithExpiration(k string) (any, time.Time, bool) {
 	c.mu.RLock()
 	// "Inlining" of get and Expired
 	item, found := c.items[k]
@@ -165,7 +165,7 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	return item.Object, time.Time{}, true
 }
 
-func (c *cache) get(k string) (interface{}, bool) {
+func (c *cache) get(k string) (any, bool) {
 	item, found := c.items[k]
 	if !found {
 		return nil, false
@@ -911,7 +911,7 @@ func (c *cache) Delete(k string) {
 	}
 }
 
-func (c *cache) delete(k string) (interface{}, bool) {
+func (c *cache) delete(k string) (any, bool) {
 	if c.onEvicted != nil {
 		if v, found := c.items[k]; found {
 			delete(c.items, k)
@@ -924,7 +924,7 @@ func (c *cache) delete(k string) (interface{}, bool) {
 
 type keyAndValue struct {
 	key   string
-	value interface{}
+	value any
 }
 
 // Delete all expired items from the cache.
@@ -950,7 +950,7 @@ func (c *cache) DeleteExpired() {
 // Sets an (optional) function that is called with the key and value when an
 // item is evicted from the cache. (Including when it is deleted manually, but
 // not when it is overwritten.) Set to nil to disable.
-func (c *cache) OnEvicted(f func(string, interface{})) {
+func (c *cache) OnEvicted(f func(string, any)) {
 	c.mu.Lock()
 	c.onEvicted = f
 	c.mu.Unlock()
