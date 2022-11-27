@@ -1231,7 +1231,7 @@ func TestOnEvicted(t *testing.T) {
 		t.Fatal("tc.onEvicted is not nil")
 	}
 	works := false
-	tc.OnEvicted(func(k string, v interface{}) {
+	tc.OnEvicted(func(k string, v any) {
 		if k == "foo" && v.(int) == 3 {
 			works = true
 		}
@@ -1460,7 +1460,7 @@ func BenchmarkRWMutexMapGet(b *testing.B) {
 func BenchmarkRWMutexInterfaceMapGetStruct(b *testing.B) {
 	b.StopTimer()
 	s := struct{ name string }{name: "foo"}
-	m := map[interface{}]string{
+	m := map[any]string{
 		s: "bar",
 	}
 	mu := sync.RWMutex{}
@@ -1474,7 +1474,7 @@ func BenchmarkRWMutexInterfaceMapGetStruct(b *testing.B) {
 
 func BenchmarkRWMutexInterfaceMapGetString(b *testing.B) {
 	b.StopTimer()
-	m := map[interface{}]string{
+	m := map[any]string{
 		"foo": "bar",
 	}
 	mu := sync.RWMutex{}
