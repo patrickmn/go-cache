@@ -115,6 +115,18 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
+func (c *cache) Rename(oldk, newk string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	item, found := c.get(oldk)
+	if !found {
+		return fmt.Errorf("Item %s doesn't exist", oldk)
+	}
+	delete(c.items, oldk)
+	c.items[newk] = item
+	return nil
+}
+
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
