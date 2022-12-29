@@ -115,6 +115,8 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
+// Rename for the cache key only if it already exists, and the existing
+// item hasn't expired. Returns an error otherwise.
 func (c *cache) Rename(oldk, newk string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
