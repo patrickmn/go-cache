@@ -1137,6 +1137,19 @@ func TestReplace(t *testing.T) {
 	}
 }
 
+func TestRename(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	err := tc.Rename("foo", "bar")
+	if err == nil {
+		t.Error("Renamed foo when it shouldn't exist")
+	}
+	tc.Set("foo", 123, DefaultExpiration)
+	err = tc.Rename("foo", "bar")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestDelete(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Set("foo", "bar", DefaultExpiration)

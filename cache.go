@@ -115,6 +115,20 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 	return nil
 }
 
+// Rename for the cache key only if it already exists, and the existing
+// item hasn't expired. Returns an error otherwise.
+func (c *cache) Rename(oldk, newk string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, found := c.get(oldk); !found {
+		return fmt.Errorf("Item %s doesn't exist", oldk)
+	}
+	item := c.items[oldk]
+	delete(c.items, oldk)
+	c.items[newk] = item
+	return nil
+}
+
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
 func (c *cache) Get(k string) (interface{}, bool) {
