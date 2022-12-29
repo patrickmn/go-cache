@@ -118,10 +118,10 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 func (c *cache) Rename(oldk, newk string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	item, found := c.get(oldk)
-	if !found {
+	if _, found := c.get(oldk); !found {
 		return fmt.Errorf("Item %s doesn't exist", oldk)
 	}
+	item := c.items[oldk]
 	delete(c.items, oldk)
 	c.items[newk] = item
 	return nil
