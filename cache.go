@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -163,6 +164,43 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	// and a zeroed time.Time
 	c.mu.RUnlock()
 	return item.Object, time.Time{}, true
+}
+
+// Keys retrieves all non-expired keys in the cache that contain the given substring pattern.
+// It returns a slice of keys matching the pattern.
+func (c *cache) Keys(pattern string) []interface{} {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var matchedKeys []interface{}
+	for k, i := range c.items {
+		if strings.Contains(k, pattern) {
+			if i.Expiration <= 0 || time.Now().UnixNano() < i.Expiration {
+				matchedKeys = append(matchedKeys, k)
+			}
+		}
+	}
+
+	return matchedKeys
+}
+
+// Scan searches for and retrieves all non-expired cached items associated with keys that
+// contain the given substring pattern.
+// It returns a slice of matching cached items.
+func (c *cache) Scan(pattern string) []interface{} {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var matchedObjects []interface{}
+	for k, i := range c.items {
+		if strings.Contains(k, pattern) {
+			if i.Expiration <= 0 || time.Now().UnixNano() < i.Expiration {
+				matchedObjects = append(matchedObjects, i.Object)
+			}
+		}
+	}
+
+	return matchedObjects
 }
 
 func (c *cache) get(k string) (interface{}, bool) {
