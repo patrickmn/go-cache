@@ -1769,3 +1769,50 @@ func TestGetWithExpiration(t *testing.T) {
 		t.Error("expiration for e is in the past")
 	}
 }
+
+func TestKeys(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+
+	tc.Set("jane_001", "admin", 50*time.Millisecond)   // Will expire after 50 milliseconds
+	tc.Set("john_002", "user", NoExpiration)           // Never expires
+	tc.Set("alice_003", "editor", 10*time.Millisecond) // Expires immediately due to DefaultExpiration = 0
+
+	keys := tc.Keys("jane")
+	if len(keys) != 1 || keys[0] != "jane_001" {
+		t.Error("Expected to find 'jane_001' but got:", keys)
+	}
+
+	keys = tc.Keys("002")
+	if len(keys) != 1 || keys[0] != "john_002" {
+		t.Error("Expected to find 'john_002' but got:", keys)
+	}
+
+	keys = tc.Keys("003")
+	if len(keys) != 0 {
+		t.Error("Expected no keys for 'alice_003' as it should have expired, but got:", keys)
+	}
+}
+
+func TestScan(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+
+	tc.Set("jane_001", "admin", 50*time.Millisecond)   // Will expire after 50 milliseconds
+	tc.Set("john_002", "user", NoExpiration)           // Never expires
+	tc.Set("alice_003", "editor", 10*time.Millisecond) // Expires immediately due to DefaultExpiration = 0
+
+	roles := tc.Scan("jane")
+	if len(roles) != 1 || roles[0].(string) != "admin" {
+		t.Error("Expected to find role 'admin' for 'jane_001' but got:", roles)
+	}
+
+	roles = tc.Scan("002")
+	if len(roles) != 1 || roles[0].(string) != "user" {
+		t.Error("Expected to find role 'user' for 'john_002' but got:", roles)
+	}
+
+	<-time.After(25 * time.Millisecond)
+	roles = tc.Scan("003")
+	if len(roles) != 0 {
+		t.Error("Expected no roles for 'alice_003' as it should have expired, but got:", roles)
+	}
+}
