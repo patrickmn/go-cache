@@ -166,7 +166,7 @@ func (c *cache) GetWithExpiration(k string) (interface{}, time.Time, bool) {
 	return item.Object, time.Time{}, true
 }
 
-// Keys retrieves all keys in the cache that contain the given substring pattern.
+// Keys retrieves all non-expired keys in the cache that contain the given substring pattern.
 // It returns a slice of keys matching the pattern.
 func (c *cache) Keys(pattern string) []interface{} {
 	c.mu.RLock()
