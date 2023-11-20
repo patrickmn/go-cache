@@ -1378,7 +1378,7 @@ func TestFileSerialization(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	tc.Add("a", "a", DefaultExpiration)
 	tc.Add("b", "b", DefaultExpiration)
-	f, err := ioutil.TempFile("", "go-cache-cache.dat")
+	f, err := ioutil.TempFile("", "go-cache-1-cache.dat")
 	if err != nil {
 		t.Fatal("Couldn't create cache file:", err)
 	}
@@ -1767,5 +1767,38 @@ func TestGetWithExpiration(t *testing.T) {
 	}
 	if expiration.UnixNano() < time.Now().UnixNano() {
 		t.Error("expiration for e is in the past")
+	}
+}
+
+func TestExpire(t *testing.T) {
+	var (
+		ct = time.Now()
+		tc = New(DefaultExpiration, 0)
+	)
+	tc.Set("a", 1, time.Second)
+	if err := tc.Expire("a", time.Second); err != nil {
+		t.Error("expected err to be nil; value", err)
+	}
+
+	_, expiration, found := tc.GetWithExpiration("a")
+	if !found {
+		t.Error("e was not found while getting e2")
+	}
+	if expiration.IsZero() {
+		t.Error("expected expiration not to be zero")
+	}
+	if d := expiration.Sub(ct); d <= time.Second {
+		t.Error("expected difference to be lesser than or equal to one second", d)
+	}
+	if err := tc.Expire("a", DefaultExpiration); err != nil {
+		t.Error("expected err to be nil; value", err)
+	}
+
+	_, expiration, found = tc.GetWithExpiration("a")
+	if !found {
+		t.Error("e was not found while getting e2")
+	}
+	if !expiration.IsZero() {
+		t.Error("expected expiration to be zero")
 	}
 }
