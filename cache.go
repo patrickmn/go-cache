@@ -922,6 +922,21 @@ func (c *cache) delete(k string) (interface{}, bool) {
 	return nil, false
 }
 
+// Expire overrides the expiry tim of an existing item. If the duration is 0
+// (DefaultExpiration), the cache's default expiration time is used. If it is -1
+// (NoExpiration), the item never expires.
+func (c *cache) Expire(k string, d time.Duration) error {
+	c.mu.Lock()
+	item, found := c.items[k]
+	if !found || (item.Expiration > 0 && time.Now().UnixNano() > item.Expiration) {
+		c.mu.Unlock()
+		return fmt.Errorf("Item %s doesn't exist", k)
+	}
+	c.set(k, item.Object, d)
+	c.mu.Unlock()
+	return nil
+}
+
 type keyAndValue struct {
 	key   string
 	value interface{}
