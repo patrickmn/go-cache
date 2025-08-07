@@ -916,6 +916,8 @@ func (c *cache) delete(k string) (interface{}, bool) {
 		if v, found := c.items[k]; found {
 			delete(c.items, k)
 			return v.Object, true
+		} else {
+			return nil, false
 		}
 	}
 	delete(c.items, k)
