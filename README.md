@@ -12,6 +12,7 @@ go-cache is an in-memory key:value store/cache similar to memcached that is suit
 *   **Redis Integration**: Optional L2 caching and persistence layer using `go-redis` (supports v8 and v9).
 *   **Capacity Management**: Internal LRU-like eviction when memory limits are reached.
 *   **Generics**: Type-safe API (Go 1.18+).
+*   **SetNX**: Atomic "Set if Not Exists" operation, seamlessly synchronized with Redis.
 *   **Numeric Operations**: Atomic increment/decrement support for numeric types, persisted to Redis.
 *   **Set Cache**: Track unique members per key, each with its own TTL — ideal for counting active sessions/devices per user.
 *   **Graceful Shutdown**: Ensures pending Redis operations are completed before exit.
@@ -42,6 +43,11 @@ func main() {
     c := cache.New[string](5*time.Minute, 10*time.Minute)
 
     c.Set("foo", "bar", cache.DefaultExpiration)
+
+    // SetNX: Only sets the key if it does not already exist.
+    // Seamlessly integrates with Redis SetNX if configured.
+    set := c.SetNX("foo", "baz", cache.DefaultExpiration)
+    fmt.Println(set) // false, since "foo" already exists
 
     foo, found := c.Get("foo")
     if found == cache.Found {
