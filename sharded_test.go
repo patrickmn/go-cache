@@ -348,3 +348,49 @@ func TestShardedCache_OnEvicted_Capacity(t *testing.T) {
 		t.Errorf("Expected eviction callbacks to be called, got 0")
 	}
 }
+
+func TestShardedCache_SetNX_LocalConcurrency(t *testing.T) {
+	sc := NewShardedCache[string](4, DefaultExpiration, 0)
+	key := "concurrent_setnx_key"
+	val := "my_value"
+
+	var wg sync.WaitGroup
+	var successCount int
+	var mu sync.Mutex
+
+	numGoroutines := 100
+	wg.Add(numGoroutines)
+
+	// Start all goroutines at roughly the same time
+	startCh := make(chan struct{})
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			<-startCh // Wait for signal
+			
+			if sc.SetNX(key, val, DefaultExpiration) {
+				mu.Lock()
+				successCount++
+				mu.Unlock()
+			}
+		}()
+	}
+
+	// Trigger all
+	close(startCh)
+	wg.Wait()
+
+	if successCount != 1 {
+		t.Errorf("Expected exactly 1 goroutine to succeed with SetNX, but got %d", successCount)
+	}
+
+	// Verify the value is correctly set
+	v, found := sc.Get(key)
+	if found != Found {
+		t.Errorf("Expected item to be found in cache")
+	}
+	if v != val {
+		t.Errorf("Expected value %s, got %s", val, v)
+	}
+}

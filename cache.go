@@ -17,6 +17,7 @@ import (
 type RedisClient interface {
 	Get(ctx context.Context, key string) ([]byte, error)
 	Set(ctx context.Context, key string, value any, expiration time.Duration) error
+	SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error)
 	Del(ctx context.Context, key string) error
 	TTL(ctx context.Context, key string) (time.Duration, error)
 }
@@ -92,6 +93,53 @@ func (c *cache[V]) Set(k string, x V, d time.Duration) {
 	c.mu.Lock()
 	c.set(k, x, d)
 	c.mu.Unlock()
+}
+
+// SetNX adds an item to the cache only if it doesn't already exist.
+// Returns true if the item was added, false otherwise.
+// If Redis is configured, it performs a synchronous SETNX on Redis.
+func (c *cache[V]) SetNX(k string, x V, d time.Duration) bool {
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+
+	c.mu.Lock()
+	item, found := c.items[k]
+	if found && !item.Expired() {
+		c.mu.Unlock()
+		return false
+	}
+
+	if c.redisClient == nil {
+		c.setLocal(k, x, d)
+		c.mu.Unlock()
+		return true
+	}
+
+	c.mu.Unlock()
+
+	ctx := c.ctx
+	var cancel context.CancelFunc
+	if c.redisTimeout > 0 {
+		ctx, cancel = context.WithTimeout(c.ctx, c.redisTimeout)
+		defer cancel()
+	}
+
+	data, err := json.Marshal(x)
+	if err != nil {
+		return false
+	}
+
+	success, err := c.redisClient.SetNX(ctx, k, data, d)
+	if err != nil || !success {
+		return false
+	}
+
+	c.mu.Lock()
+	c.setLocal(k, x, d)
+	c.mu.Unlock()
+
+	return true
 }
 
 func (c *cache[V]) set(k string, x V, d time.Duration) {

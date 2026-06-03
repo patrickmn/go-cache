@@ -26,6 +26,10 @@ func (r *RedisAdapter) Del(ctx context.Context, key string) error {
 	return r.client.Del(ctx, key).Err()
 }
 
+func (r *RedisAdapter) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	return r.client.SetNX(ctx, key, value, expiration).Result()
+}
+
 func (r *RedisAdapter) TTL(ctx context.Context, key string) (time.Duration, error) {
 	return r.client.TTL(ctx, key).Result()
 }

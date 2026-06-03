@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestShardedCache_RedisIntegration(t *testing.T) {
@@ -271,4 +275,73 @@ func TestRedisIntegration_NumericAndSet(t *testing.T) {
 			t.Errorf("Worker2 failed to sync Set from Redis. Expected 2 members, got %d", count)
 		}
 	})
+}
+
+func TestShardedCache_SetNX_RedisConcurrency(t *testing.T) {
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("Could not start miniredis: %v", err)
+	}
+	defer mr.Close()
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(),
+	})
+	adapter := &RedisAdapter{client: rdb}
+
+	sc := NewShardedCache[string](4, DefaultExpiration, 0)
+	sc.WithRedis(adapter).WithRedisTimeout(1 * time.Second)
+
+	key := "concurrent_redis_setnx_key"
+	val := "my_redis_value"
+
+	var wg sync.WaitGroup
+	var successCount int
+	var mu sync.Mutex
+
+	numGoroutines := 100
+	wg.Add(numGoroutines)
+
+	startCh := make(chan struct{})
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			<-startCh
+			
+			if sc.SetNX(key, val, DefaultExpiration) {
+				mu.Lock()
+				successCount++
+				mu.Unlock()
+			}
+		}()
+	}
+
+	close(startCh)
+	wg.Wait()
+
+	if successCount != 1 {
+		t.Errorf("Expected exactly 1 goroutine to succeed with Redis SetNX, but got %d", successCount)
+	}
+
+	// Verify in local cache
+	v, found := sc.Get(key)
+	if found != Found {
+		t.Errorf("Expected item to be found in local cache")
+	}
+	if v != val {
+		t.Errorf("Expected local value %s, got %s", val, v)
+	}
+
+	// Verify in Redis
+	ctx := context.Background()
+	data, err := adapter.Get(ctx, key)
+	if err != nil {
+		t.Fatalf("Expected key in Redis, got error: %v", err)
+	}
+	var res string
+	json.Unmarshal(data, &res)
+	if res != val {
+		t.Errorf("Expected Redis value %s, got %s", val, res)
+	}
 }

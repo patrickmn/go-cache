@@ -64,6 +64,10 @@ func (sc *ShardedCache[V]) Set(k string, x V, d time.Duration) {
 	sc.bucket(k).Set(k, x, d)
 }
 
+func (sc *ShardedCache[V]) SetNX(k string, x V, d time.Duration) bool {
+	return sc.bucket(k).SetNX(k, x, d)
+}
+
 func (sc *ShardedCache[V]) Add(k string, x V, d time.Duration) error {
 	return sc.bucket(k).Add(k, x, d)
 }

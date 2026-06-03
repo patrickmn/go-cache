@@ -27,6 +27,15 @@ func (a *Adapter) Set(ctx context.Context, key string, value any, expiration tim
 	return a.client.Set(ctx, key, value, expiration).Err()
 }
 
+func (a *Adapter) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	if expiration > 0 && expiration < time.Millisecond {
+		expiration = time.Millisecond
+	} else if expiration < 0 {
+		expiration = 0
+	}
+	return a.client.SetNX(ctx, key, value, expiration).Result()
+}
+
 func (a *Adapter) Del(ctx context.Context, key string) error {
 	return a.client.Del(ctx, key).Err()
 }
