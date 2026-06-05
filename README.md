@@ -26,6 +26,18 @@ go-cache is an in-memory key:value store/cache similar to memcached that is suit
 
 ---
 
+## Recent Updates
+
+*   **SetNX Support**: Added atomic `SetNX` (Set if Not Exists) operations seamlessly synchronized with Redis.
+*   **Automatic Redis Fetching**: Enabled automatic Redis fetching for local cache misses and expired items, enhancing multi-instance synchronization.
+*   **Configurable Timeouts**: Fine-tune Redis L2 operation timeouts for all cache types.
+*   **Manual Sync Support**: Added `Sync` method to force refresh items from Redis across all cache types.
+*   **SetCache & ShardedSetCache**: Introduced sets for tracking unique members with individual TTLs.
+*   **Numeric Convenience Methods**: Added `Incr` and `Decr` methods for numeric cache operations.
+*   **Performance Improvements**: Enhanced Redis synchronization logic and added comprehensive performance benchmarks.
+
+---
+
 ## Usage
 
 ### Basic Cache
