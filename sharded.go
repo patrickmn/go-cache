@@ -268,3 +268,63 @@ func (sc *ShardedNumericCache[N]) WithRedisTimeout(d time.Duration) *ShardedNume
 	sc.ShardedCache.WithRedisTimeout(d)
 	return sc
 }
+
+// WithWriteThroughOnly switches every shard into memory-authoritative mode.
+// See Cache.WithWriteThroughOnly.
+func (sc *ShardedCache[V]) WithWriteThroughOnly() *ShardedCache[V] {
+	for _, c := range sc.cs {
+		c.withWriteThroughOnly()
+	}
+	return sc
+}
+
+// WithBlockOnFull configures blocking-on-full behavior on every shard.
+// See Cache.WithBlockOnFull.
+func (sc *ShardedCache[V]) WithBlockOnFull(d time.Duration) *ShardedCache[V] {
+	for _, c := range sc.cs {
+		c.withBlockOnFull(d)
+	}
+	return sc
+}
+
+// WarmFromRedis loads the given keys from Redis into the appropriate shards.
+// See cache.WarmFromRedis. It returns the total number of keys loaded.
+func (sc *ShardedCache[V]) WarmFromRedis(keys []string) (int, error) {
+	// Group keys by shard so each shard is warmed in one call.
+	byShard := make(map[int][]string)
+	for _, k := range keys {
+		idx := shardKey(k, sc.numBuckets)
+		byShard[idx] = append(byShard[idx], k)
+	}
+
+	total := 0
+	for idx, shardKeys := range byShard {
+		n, err := sc.cs[idx].WarmFromRedis(shardKeys)
+		total += n
+		if err != nil {
+			return total, err
+		}
+	}
+	return total, nil
+}
+
+// DroppedWrites returns the total number of async Redis writes dropped across all
+// shards because their write-behind queues were full.
+func (sc *ShardedCache[V]) DroppedWrites() (total uint64) {
+	for _, c := range sc.cs {
+		total += c.DroppedWrites()
+	}
+	return
+}
+
+// WithWriteThroughOnly enables memory-authoritative mode. See Cache.WithWriteThroughOnly.
+func (sc *ShardedNumericCache[N]) WithWriteThroughOnly() *ShardedNumericCache[N] {
+	sc.ShardedCache.WithWriteThroughOnly()
+	return sc
+}
+
+// WithBlockOnFull configures blocking-on-full behavior. See Cache.WithBlockOnFull.
+func (sc *ShardedNumericCache[N]) WithBlockOnFull(d time.Duration) *ShardedNumericCache[N] {
+	sc.ShardedCache.WithBlockOnFull(d)
+	return sc
+}

@@ -277,6 +277,246 @@ func TestRedisIntegration_NumericAndSet(t *testing.T) {
 	})
 }
 
+// newMiniRedisAdapter spins up an in-process miniredis and returns an adapter
+// plus the *miniredis.Miniredis handle (for direct inspection) and a cleanup.
+func newMiniRedisAdapter(t *testing.T) (*RedisAdapter, *miniredis.Miniredis) {
+	t.Helper()
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("Could not start miniredis: %v", err)
+	}
+	t.Cleanup(mr.Close)
+
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { rdb.Close() })
+	return &RedisAdapter{client: rdb}, mr
+}
+
+// TestWriteThroughOnly_NoSyncRead verifies that in memory-authoritative mode the
+// hot path never reads Redis on a local miss, while async writes still land in
+// Redis and explicit Sync/WarmFromRedis still read it.
+func TestWriteThroughOnly_NoSyncRead(t *testing.T) {
+	adapter, _ := newMiniRedisAdapter(t)
+
+	sc := NewShardedCache[RedisTestStruct](4, 5*time.Minute, 0)
+	sc.WithRedis(adapter).WithRedisTimeout(time.Second).WithWriteThroughOnly()
+	defer sc.Close()
+
+	key := "wto_key"
+	val := RedisTestStruct{Name: "wto", Value: 7}
+
+	// Write goes to local immediately and to Redis asynchronously.
+	sc.Set(key, val, 0)
+
+	// Hot-path read hits local cache.
+	if got, found := sc.Get(key); found != Found || got != val {
+		t.Fatalf("expected local hit, got %v found=%v", got, found)
+	}
+
+	// Wait for async write-behind to reach Redis.
+	ctx := context.Background()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if _, err := adapter.Get(ctx, key); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("async write never reached Redis")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Flush local cache: in write-through-only mode the hot path must NOT
+	// fall back to Redis, so Get should now be a Miss even though the key
+	// still exists in Redis.
+	sc.Flush()
+	if _, found := sc.Get(key); found != Miss {
+		t.Errorf("expected Miss in write-through-only mode after flush, got found=%v", found)
+	}
+
+	// Explicit Sync bypasses write-through-only and reads Redis.
+	got, err := sc.Sync(key)
+	if err != nil {
+		t.Fatalf("Sync should read Redis even in write-through-only mode: %v", err)
+	}
+	if got != val {
+		t.Errorf("Sync returned %v, want %v", got, val)
+	}
+
+	// After Sync the value is back in local cache and served from memory.
+	if got, found := sc.Get(key); found != Found || got != val {
+		t.Errorf("expected local hit after Sync, got %v found=%v", got, found)
+	}
+}
+
+// TestWarmFromRedis verifies that startup warmup loads existing Redis state into
+// local memory, routed to the correct shards.
+func TestWarmFromRedis(t *testing.T) {
+	adapter, _ := newMiniRedisAdapter(t)
+	ctx := context.Background()
+
+	// Pre-populate Redis directly (as if a previous process had persisted it).
+	keys := []string{"warm_a", "warm_b", "warm_c"}
+	for i, k := range keys {
+		data, _ := json.Marshal(RedisTestStruct{Name: k, Value: i})
+		if err := adapter.Set(ctx, k, data, time.Hour); err != nil {
+			t.Fatalf("seed Redis: %v", err)
+		}
+	}
+
+	sc := NewShardedCache[RedisTestStruct](4, 5*time.Minute, 0)
+	sc.WithRedis(adapter).WithRedisTimeout(time.Second).WithWriteThroughOnly()
+	defer sc.Close()
+
+	// Nothing in local cache yet, and the hot path won't read Redis.
+	if _, found := sc.Get("warm_a"); found != Miss {
+		t.Fatalf("expected Miss before warmup")
+	}
+
+	// Warm a subset (plus one missing key, which must be skipped).
+	loaded, err := sc.WarmFromRedis([]string{"warm_a", "warm_b", "missing"})
+	if err != nil {
+		t.Fatalf("WarmFromRedis: %v", err)
+	}
+	if loaded != 2 {
+		t.Errorf("expected 2 keys loaded, got %d", loaded)
+	}
+
+	// Warmed keys are now served from memory.
+	if got, found := sc.Get("warm_a"); found != Found || got.Name != "warm_a" {
+		t.Errorf("warm_a not loaded into local cache: got %v found=%v", got, found)
+	}
+	if got, found := sc.Get("warm_b"); found != Found || got.Name != "warm_b" {
+		t.Errorf("warm_b not loaded into local cache: got %v found=%v", got, found)
+	}
+	// Un-warmed key remains a local miss (no sync read).
+	if _, found := sc.Get("warm_c"); found != Miss {
+		t.Errorf("warm_c should not be loaded, got found=%v", found)
+	}
+}
+
+// TestSetNX_WriteThroughOnly_LocalAuthoritative verifies that in
+// memory-authoritative mode SetNX is decided by the local shard lock (exactly
+// one winner) and the Redis SETNX is performed asynchronously.
+func TestSetNX_WriteThroughOnly_LocalAuthoritative(t *testing.T) {
+	adapter, _ := newMiniRedisAdapter(t)
+
+	sc := NewShardedCache[string](4, DefaultExpiration, 0)
+	sc.WithRedis(adapter).WithRedisTimeout(time.Second).WithWriteThroughOnly()
+	defer sc.Close()
+
+	key := "wto_setnx_key"
+	val := "wto_setnx_val"
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	successCount := 0
+	numGoroutines := 100
+	startCh := make(chan struct{})
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			<-startCh
+			if sc.SetNX(key, val, DefaultExpiration) {
+				mu.Lock()
+				successCount++
+				mu.Unlock()
+			}
+		}()
+	}
+	close(startCh)
+	wg.Wait()
+
+	if successCount != 1 {
+		t.Errorf("expected exactly 1 local-authoritative SetNX winner, got %d", successCount)
+	}
+
+	// Value is present in local cache immediately.
+	if v, found := sc.Get(key); found != Found || v != val {
+		t.Errorf("expected local value %q, got %q found=%v", val, v, found)
+	}
+
+	// The async SETNX should eventually persist to Redis.
+	ctx := context.Background()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if data, err := adapter.Get(ctx, key); err == nil {
+			var res string
+			json.Unmarshal(data, &res)
+			if res == val {
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("async SETNX never reached Redis")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestDroppedWrites_Counter verifies that overflowing the async write-behind
+// queue increments the dropped-writes counter instead of silently losing writes.
+func TestDroppedWrites_Counter(t *testing.T) {
+	// Block the worker by using an adapter whose Set sleeps, so the buffered
+	// channel fills up and subsequent non-blocking enqueues are dropped.
+	adapter, _ := newMiniRedisAdapter(t)
+	slow := &slowSetAdapter{RedisAdapter: adapter, delay: 2 * time.Millisecond}
+
+	c := New[int](NoExpiration, 0)
+	c.WithRedis(slow)
+	defer c.Close()
+
+	// Fire far more writes than the channel buffer (1000) can absorb while the
+	// worker is stalled, so some must be dropped.
+	for i := 0; i < 5000; i++ {
+		c.Set(fmt.Sprintf("k-%d", i), i, 0)
+	}
+
+	if c.DroppedWrites() == 0 {
+		t.Errorf("expected some dropped writes when the queue overflows, got 0")
+	}
+}
+
+// TestBlockOnFull_ReducesDrops verifies WithBlockOnFull lets a saturated queue
+// drain rather than dropping immediately. With blocking enabled, the producer is
+// throttled to the worker's rate, so nothing is dropped.
+func TestBlockOnFull_ReducesDrops(t *testing.T) {
+	adapter, _ := newMiniRedisAdapter(t)
+	slow := &slowSetAdapter{RedisAdapter: adapter, delay: time.Millisecond}
+
+	c := New[int](NoExpiration, 0)
+	c.WithRedis(slow).WithBlockOnFull(5 * time.Second)
+	defer c.Close()
+
+	// 1500 writes > 1000 buffer. With a generous block timeout the producer
+	// waits for room instead of dropping.
+	for i := 0; i < 1500; i++ {
+		c.Set(fmt.Sprintf("bk-%d", i), i, 0)
+	}
+
+	if dropped := c.DroppedWrites(); dropped != 0 {
+		t.Errorf("expected 0 dropped writes with WithBlockOnFull, got %d", dropped)
+	}
+}
+
+// slowSetAdapter wraps RedisAdapter and slows down Set/SetNX to simulate a Redis
+// worker that cannot keep up with the producer.
+type slowSetAdapter struct {
+	*RedisAdapter
+	delay time.Duration
+}
+
+func (s *slowSetAdapter) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
+	time.Sleep(s.delay)
+	return s.RedisAdapter.Set(ctx, key, value, expiration)
+}
+
+func (s *slowSetAdapter) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	time.Sleep(s.delay)
+	return s.RedisAdapter.SetNX(ctx, key, value, expiration)
+}
+
 func TestShardedCache_SetNX_RedisConcurrency(t *testing.T) {
 	mr, err := miniredis.Run()
 	if err != nil {

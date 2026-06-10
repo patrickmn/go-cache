@@ -10,13 +10,17 @@ go-cache is an in-memory key:value store/cache similar to memcached that is suit
 
 *   **Sharding**: Reduces lock contention for high-concurrency workloads.
 *   **Redis Integration**: Optional L2 caching and persistence layer using `go-redis` (supports v8 and v9).
+*   **Memory-Authoritative Mode**: Optional write-behind-only mode where Redis is *never* read synchronously on the hot path — after warmup, reads are fully in-memory while writes still persist asynchronously.
+*   **Single Round-Trip Reads**: Redis reads fetch the value and its TTL in one round-trip (pipeline / `GETEX`) when the adapter supports it, instead of a separate `GET` + `TTL`.
+*   **Startup Warmup**: `WarmFromRedis` rebuilds in-memory state from Redis at boot, so durability survives restarts without any synchronous reads at runtime.
 *   **Capacity Management**: Internal LRU-like eviction when memory limits are reached.
 *   **Generics**: Type-safe API (Go 1.18+).
-*   **SetNX**: Atomic "Set if Not Exists" operation, seamlessly synchronized with Redis.
+*   **SetNX**: Atomic "Set if Not Exists" operation, either synchronized with Redis (default) or local-authoritative with async persistence.
 *   **Numeric Operations**: Atomic increment/decrement support for numeric types, persisted to Redis.
 *   **Set Cache**: Track unique members per key, each with its own TTL — ideal for counting active sessions/devices per user.
 *   **Graceful Shutdown**: Ensures pending Redis operations are completed before exit.
 *   **Sync**: Force refresh items from Redis.
+*   **Back-Pressure Control**: Observe dropped async writes via `DroppedWrites`, and optionally block briefly instead of dropping when the write-behind queue is full.
 *   **Configurable Timeouts**: Fine-tune Redis L2 operation timeouts for all cache types.
 *   **Performance**: Extremely low latency local operations (see [BENCHMARKS.md](BENCHMARKS.md)).
 
@@ -28,6 +32,11 @@ go-cache is an in-memory key:value store/cache similar to memcached that is suit
 
 ## Recent Updates
 
+*   **Memory-Authoritative / Write-Behind-Only Mode**: `WithWriteThroughOnly()` keeps the hot path (`Get`/`ModifyNumeric`/`SetNX`) fully in-memory — Redis is used purely as an async write-behind layer and is never read synchronously on a local miss.
+*   **Single Round-Trip Redis Reads**: Added the optional `RedisGetTTLClient` interface (implemented by the bundled v8/v9 adapters via a pipeline). When available, a Redis read fetches value + TTL in one round-trip instead of separate `GET` and `TTL` calls.
+*   **Startup Warmup**: `WarmFromRedis(keys)` loads existing Redis state into local memory at startup, for durability across restarts without runtime synchronous reads.
+*   **Local-Authoritative SetNX**: In write-through-only mode, `SetNX` guarantees atomicity via the local shard lock and pushes the Redis `SETNX` asynchronously. The original cluster-wide synchronous behavior remains the default.
+*   **Back-Pressure Metrics & Blocking**: Async write drops (when the queue is full) are now counted and exposed via `DroppedWrites()`. `WithBlockOnFull(d)` blocks briefly instead of dropping immediately.
 *   **SetNX Support**: Added atomic `SetNX` (Set if Not Exists) operations seamlessly synchronized with Redis.
 *   **Automatic Redis Fetching**: Enabled automatic Redis fetching for local cache misses and expired items, enhancing multi-instance synchronization.
 *   **Configurable Timeouts**: Fine-tune Redis L2 operation timeouts for all cache types.
@@ -120,6 +129,72 @@ c.WithRedisTimeout(500 * time.Millisecond)
 // Available for all cache types (Cache, NumericCache, SetCache)
 val, err := c.Sync("key")
 ```
+
+#### How reads work (default: read-through)
+
+By default the cache is **read-through**: a `Get` first checks local memory, and on a local miss (or a locally-expired item) it transparently falls back to Redis. If the key exists in Redis, the value is pulled back into local memory and returned. This keeps multiple instances loosely synchronized — a value written by one worker becomes visible to others on their next miss.
+
+The Redis read fetches both the value and its remaining TTL. When the configured adapter implements `RedisGetTTLClient` (the bundled `redisv8` / `redisv9` adapters do, via a pipeline), this is a **single round-trip**; otherwise it falls back to a separate `GET` + `TTL`.
+
+---
+
+### Memory-Authoritative Mode (Write-Behind Only)
+
+For latency-critical, high-throughput workloads you can make memory the source of truth and demote Redis to a pure **async write-behind** layer. In this mode the hot path is *never* blocked by a synchronous Redis read.
+
+Enable it with `WithWriteThroughOnly()` (available on `Cache`, `NumericCache`, `ShardedCache`, and `ShardedNumericCache`):
+
+```go
+c := cache.NewShardedCache[MyStruct](16, 5*time.Minute, 10*time.Minute)
+c.WithRedis(redisv9.New(rdb)).
+    WithRedisTimeout(500 * time.Millisecond).
+    WithWriteThroughOnly()
+defer c.Close()
+```
+
+What changes in this mode:
+
+*   **Reads stay in memory.** `Get`, `ModifyNumeric`, `SetNX`, and the `SetCache` getters no longer fall back to Redis on a local miss — a miss is a miss. After warmup, the hot path is 100% in-memory.
+*   **Writes still persist.** `Set`, `Delete`, `Incr`/`Decr`, etc. are still propagated to Redis asynchronously through the write-behind worker.
+*   **`SetNX` becomes local-authoritative.** Atomicity is guaranteed by the local shard lock (exactly one winner per process), and the Redis `SETNX` is sent asynchronously. The signature and return value are unchanged. *Note:* cluster-wide uniqueness is no longer enforced synchronously — use the default mode if you need that guarantee.
+*   **Explicit reads still hit Redis.** `Sync(key)` and `WarmFromRedis(keys)` deliberately bypass this mode, since they are not on the hot path.
+
+#### Warming up from Redis at startup
+
+To get durability across restarts *without* paying for synchronous reads at runtime, load your state from Redis once at boot:
+
+```go
+// Rebuild in-memory state for known keys (e.g. after a restart).
+loaded, err := c.WarmFromRedis([]string{"user:1", "user:2", "user:3"})
+fmt.Printf("warmed %d keys from Redis\n", loaded)
+```
+
+Keys missing from Redis are skipped silently; `loaded` is the number of keys actually restored. For `ShardedCache`, keys are automatically routed to the correct shard. An error is returned only if Redis is not configured.
+
+---
+
+### Back-Pressure: Dropped Writes & Blocking
+
+Async Redis writes flow through a buffered queue. If writes are produced faster than the Redis worker can drain them, the queue fills up. By default an overflowing write is **dropped** (to avoid stalling the application), but it is now **counted** rather than silently lost:
+
+```go
+// Number of async Redis writes dropped because the queue was full.
+// On ShardedCache this is summed across all shards.
+dropped := c.DroppedWrites()
+if dropped > 0 {
+    log.Printf("WARNING: %d cache writes were dropped before reaching Redis", dropped)
+}
+```
+
+If losing a write is unacceptable (for example, an item about to be evicted from memory), configure the producer to **block briefly** instead of dropping:
+
+```go
+// When the queue is full, block for up to 50ms waiting for room.
+// If still full after the timeout, the write is dropped and counted.
+c.WithBlockOnFull(50 * time.Millisecond)
+```
+
+> **Trade-off:** blocking applies back-pressure to the calling goroutine (and, for `Set`/`Delete`, briefly while holding the shard lock), so keep the timeout short. A zero or negative duration restores the default drop-immediately behavior.
 
 ---
 

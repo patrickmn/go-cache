@@ -20,6 +20,29 @@ func (a *Adapter) Get(ctx context.Context, key string) ([]byte, error) {
 	return a.client.Get(ctx, key).Bytes()
 }
 
+// GetWithTTL fetches the value and its remaining TTL in a single round-trip
+// using a pipeline (GET + TTL). It implements cache.RedisGetTTLClient so the
+// cache can avoid issuing two separate round-trips on a Redis read.
+func (a *Adapter) GetWithTTL(ctx context.Context, key string) ([]byte, time.Duration, error) {
+	pipe := a.client.Pipeline()
+	getCmd := pipe.Get(ctx, key)
+	ttlCmd := pipe.TTL(ctx, key)
+	if _, err := pipe.Exec(ctx); err != nil {
+		// Exec returns the first command error (e.g. redis.Nil when the key
+		// is missing), which we surface as a miss.
+		return nil, 0, err
+	}
+	b, err := getCmd.Bytes()
+	if err != nil {
+		return nil, 0, err
+	}
+	ttl, err := ttlCmd.Result()
+	if err != nil {
+		ttl = 0
+	}
+	return b, ttl, nil
+}
+
 func (a *Adapter) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	if expiration < time.Millisecond {
 		expiration = time.Millisecond

@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,6 +21,18 @@ type RedisClient interface {
 	SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error)
 	Del(ctx context.Context, key string) error
 	TTL(ctx context.Context, key string) (time.Duration, error)
+}
+
+// RedisGetTTLClient is an optional extension of RedisClient. If a configured
+// Redis client also implements this interface, the cache uses GetWithTTL to
+// fetch a value and its remaining TTL in a single round-trip instead of issuing
+// a separate Get and TTL call. Adapters typically implement this with a Redis
+// pipeline (GET + TTL) or GETEX.
+type RedisGetTTLClient interface {
+	// GetWithTTL returns the raw value bytes and the remaining TTL for key.
+	// A negative ttl means "no expiration"; an error means the key is missing
+	// or unreadable.
+	GetWithTTL(ctx context.Context, key string) (value []byte, ttl time.Duration, err error)
 }
 
 type Item[V any] struct {
@@ -70,6 +83,18 @@ type cache[V any] struct {
 	ctx           context.Context
 	wg            sync.WaitGroup
 	redisTimeout  time.Duration
+	// writeThroughOnly enables "memory-authoritative" mode: Redis is used only
+	// as an async write-behind layer and is never read on a local miss in the
+	// hot path (Get/getFallback/ModifyNumeric/SetNX). Explicit reads (Sync,
+	// WarmFromRedis) still hit Redis. Default false keeps the original
+	// read-through-on-miss behavior.
+	writeThroughOnly bool
+	// redisBlockTimeout, when > 0, makes async Redis enqueues block for up to
+	// this duration when redisCh is full instead of dropping immediately.
+	redisBlockTimeout time.Duration
+	// droppedWrites counts async Redis writes dropped because redisCh was full
+	// (and could not be enqueued within redisBlockTimeout, if set).
+	droppedWrites atomic.Uint64
 }
 
 type redisOp int
@@ -77,6 +102,7 @@ type redisOp int
 const (
 	redisOpSet redisOp = iota
 	redisOpDel
+	redisOpSetNX
 )
 
 type redisItem[V any] struct {
@@ -97,10 +123,35 @@ func (c *cache[V]) Set(k string, x V, d time.Duration) {
 
 // SetNX adds an item to the cache only if it doesn't already exist.
 // Returns true if the item was added, false otherwise.
-// If Redis is configured, it performs a synchronous SETNX on Redis.
+//
+// By default, when Redis is configured, atomicity is guaranteed cluster-wide by
+// performing a synchronous SETNX on Redis (the original behavior).
+//
+// In write-through-only mode (see WithWriteThroughOnly), SetNX is
+// local-authoritative: atomicity is guaranteed solely by the local shard lock,
+// the SETNX on Redis is performed asynchronously, and the method never blocks on
+// Redis. This keeps the hot path fully in-memory at the cost of cluster-wide
+// uniqueness guarantees.
 func (c *cache[V]) SetNX(k string, x V, d time.Duration) bool {
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
+	}
+
+	// Local-authoritative path: decide entirely under the shard lock and push
+	// the SETNX to Redis asynchronously.
+	if c.writeThroughOnly {
+		c.mu.Lock()
+		item, found := c.items[k]
+		if found && !item.Expired() {
+			c.mu.Unlock()
+			return false
+		}
+		c.setLocal(k, x, d)
+		c.mu.Unlock()
+
+		// Best-effort async persistence; keeps the same op semantics on Redis.
+		c.enqueueRedis(redisItem[V]{k: k, v: x, d: d, op: redisOpSetNX})
+		return true
 	}
 
 	c.mu.Lock()
@@ -159,14 +210,47 @@ func (c *cache[V]) set(k string, x V, d time.Duration) {
 	c.evict()
 
 	// Async Redis Write
-	if c.redisClient != nil && c.redisCh != nil {
-		// Use non-blocking send or buffered
-		select {
-		case c.redisCh <- redisItem[V]{k: k, v: x, d: d, op: redisOpSet}:
-		default:
-			// Channel full, drop write to avoid blocking app
-		}
+	c.enqueueRedis(redisItem[V]{k: k, v: x, d: d, op: redisOpSet})
+}
+
+// enqueueRedis hands an operation to the async Redis worker. By default it is
+// non-blocking: if redisCh is full the write is dropped and droppedWrites is
+// incremented (use DroppedWrites to observe this). When a block timeout has been
+// configured via WithBlockOnFull, it instead blocks for up to that duration
+// before falling back to dropping the write.
+func (c *cache[V]) enqueueRedis(item redisItem[V]) {
+	if c.redisClient == nil || c.redisCh == nil {
+		return
 	}
+
+	// Fast path: try a non-blocking send first.
+	select {
+	case c.redisCh <- item:
+		return
+	default:
+	}
+
+	if c.redisBlockTimeout <= 0 {
+		// Drop-on-full, but account for it instead of silently losing the write.
+		c.droppedWrites.Add(1)
+		return
+	}
+
+	// Block briefly rather than drop immediately.
+	timer := time.NewTimer(c.redisBlockTimeout)
+	defer timer.Stop()
+	select {
+	case c.redisCh <- item:
+	case <-timer.C:
+		c.droppedWrites.Add(1)
+	}
+}
+
+// DroppedWrites returns the number of async Redis writes that have been dropped
+// because the write-behind queue was full. A persistently non-zero and growing
+// value indicates the Redis worker cannot keep up with the write rate.
+func (c *cache[V]) DroppedWrites() uint64 {
+	return c.droppedWrites.Load()
 }
 
 // evict clears 25% of the cache if it's full.
@@ -309,7 +393,8 @@ func (c *cache[V]) getFallbackWithExpiration(k string) (V, time.Time, bool) {
 // Sync fetches the value for the given key from Redis (if available) and updates the local cache.
 // It returns the value and an error if the key was not found in Redis or if Redis is not configured.
 func (c *cache[V]) Sync(k string) (V, error) {
-	val, ttl, found := c.fetchFromRedis(k)
+	// Sync is an explicit read, so it bypasses write-through-only mode.
+	val, ttl, found := c.fetchFromRedisForce(k)
 	if !found {
 		var zero V
 		return zero, fmt.Errorf("item %s not found in Redis", k)
@@ -320,6 +405,33 @@ func (c *cache[V]) Sync(k string) (V, error) {
 	c.mu.Unlock()
 
 	return val, nil
+}
+
+// WarmFromRedis loads the given keys from Redis into the local cache. It is
+// intended to be called at startup to rebuild in-memory state (e.g. dedup state)
+// after a restart, so the hot path can run fully in-memory afterwards — this is
+// especially useful together with WithWriteThroughOnly, which disables
+// synchronous Redis reads at runtime.
+//
+// It returns the number of keys successfully loaded. Keys missing from Redis are
+// skipped silently. An error is returned only when Redis is not configured.
+func (c *cache[V]) WarmFromRedis(keys []string) (int, error) {
+	if c.redisClient == nil {
+		return 0, fmt.Errorf("redis is not configured")
+	}
+
+	loaded := 0
+	for _, k := range keys {
+		val, ttl, found := c.fetchFromRedisForce(k)
+		if !found {
+			continue
+		}
+		c.mu.Lock()
+		c.setLocal(k, val, ttl)
+		c.mu.Unlock()
+		loaded++
+	}
+	return loaded, nil
 }
 
 func (c *cache[V]) get(k string) (V, bool) {
@@ -336,8 +448,23 @@ func (c *cache[V]) get(k string) (V, bool) {
 	return item.Object, true
 }
 
-// Fetches from Redis without modifying local cache. Safe to call without lock.
+// fetchFromRedis fetches from Redis without modifying the local cache. Safe to
+// call without a lock. In write-through-only mode it short-circuits and reports
+// a miss, so callers on the hot path (Get/getFallback/ModifyNumeric/SetNX) never
+// perform a synchronous Redis read. Explicit reads (Sync, WarmFromRedis) use
+// fetchFromRedisForce to bypass this.
 func (c *cache[V]) fetchFromRedis(k string) (V, time.Duration, bool) {
+	if c.writeThroughOnly {
+		var zero V
+		return zero, 0, false
+	}
+	return c.fetchFromRedisForce(k)
+}
+
+// fetchFromRedisForce always reads from Redis (ignoring write-through-only mode).
+// It uses a single round-trip via RedisGetTTLClient when the configured client
+// supports it, otherwise it falls back to a separate Get + TTL.
+func (c *cache[V]) fetchFromRedisForce(k string) (V, time.Duration, bool) {
 	var zero V
 	if c.redisClient == nil {
 		return zero, 0, false
@@ -350,17 +477,35 @@ func (c *cache[V]) fetchFromRedis(k string) (V, time.Duration, bool) {
 		defer cancel()
 	}
 
-	val, err := c.redisClient.Get(ctx, k)
-	if err != nil {
-		return zero, 0, false
+	var (
+		val []byte
+		ttl time.Duration
+		err error
+	)
+	if gt, ok := c.redisClient.(RedisGetTTLClient); ok {
+		// Single round-trip: value + remaining TTL together.
+		val, ttl, err = gt.GetWithTTL(ctx, k)
+		if err != nil {
+			return zero, 0, false
+		}
+	} else {
+		// Fallback: two round-trips for clients that don't support GetWithTTL.
+		val, err = c.redisClient.Get(ctx, k)
+		if err != nil {
+			return zero, 0, false
+		}
+		ttl, err = c.redisClient.TTL(ctx, k)
+		if err != nil {
+			ttl = DefaultExpiration
+		}
 	}
+	if ttl < 0 {
+		ttl = DefaultExpiration
+	}
+
 	var obj V
 	if err := json.Unmarshal(val, &obj); err != nil {
 		return zero, 0, false
-	}
-	ttl, err := c.redisClient.TTL(ctx, k)
-	if err != nil || ttl < 0 {
-		ttl = DefaultExpiration
 	}
 	return obj, ttl, true
 }
@@ -434,6 +579,51 @@ func (c *cache[V]) withRedisTimeout(d time.Duration) {
 	c.mu.Unlock()
 }
 
+func (c *cache[V]) withWriteThroughOnly() {
+	c.mu.Lock()
+	c.writeThroughOnly = true
+	c.mu.Unlock()
+}
+
+func (c *cache[V]) withBlockOnFull(d time.Duration) {
+	c.mu.Lock()
+	c.redisBlockTimeout = d
+	c.mu.Unlock()
+}
+
+// WithWriteThroughOnly switches the cache into "memory-authoritative" mode:
+// Redis becomes a pure async write-behind layer. After warmup, the hot path
+// (Get/getFallback/ModifyNumeric/SetNX) is served entirely from memory and never
+// reads Redis synchronously on a local miss. Writes are still propagated to Redis
+// asynchronously via the write-behind worker, and explicit reads (Sync,
+// WarmFromRedis) still consult Redis.
+func (c *Cache[V]) WithWriteThroughOnly() *Cache[V] {
+	c.cache.withWriteThroughOnly()
+	return c
+}
+
+// WithBlockOnFull makes async Redis enqueues block for up to d when the
+// write-behind queue is full, instead of dropping the write immediately. If the
+// write still cannot be enqueued within d it is dropped and counted by
+// DroppedWrites. A zero or negative d restores the default drop-immediately
+// behavior.
+func (c *Cache[V]) WithBlockOnFull(d time.Duration) *Cache[V] {
+	c.cache.withBlockOnFull(d)
+	return c
+}
+
+// WithWriteThroughOnly enables memory-authoritative mode. See Cache.WithWriteThroughOnly.
+func (c *NumericCache[N]) WithWriteThroughOnly() *NumericCache[N] {
+	c.cache.withWriteThroughOnly()
+	return c
+}
+
+// WithBlockOnFull configures blocking-on-full behavior. See Cache.WithBlockOnFull.
+func (c *NumericCache[N]) WithBlockOnFull(d time.Duration) *NumericCache[N] {
+	c.cache.withBlockOnFull(d)
+	return c
+}
+
 // ModifyNumeric atomically modifies a numeric item in the cache.
 // If the item does not exist or is expired, it is set to `operand`.
 // If isIncrement is true, `operand` is added to the existing value.
@@ -489,10 +679,7 @@ func (c *NumericCache[N]) ModifyNumeric(k string, operand N, isIncrement bool) (
 			d = -1 // NoExpiration
 		}
 
-		select {
-		case c.redisCh <- redisItem[N]{k: k, v: newVal, d: d, op: redisOpSet}:
-		default:
-		}
+		c.enqueueRedis(redisItem[N]{k: k, v: newVal, d: d, op: redisOpSet})
 	}
 
 	return newVal, nil
@@ -525,23 +712,13 @@ func (c *cache[V]) delete(k string) (V, bool) {
 		if v, found := c.items[k]; found {
 			delete(c.items, k)
 			// Redis Async Delete
-			if c.redisClient != nil && c.redisCh != nil {
-				select {
-				case c.redisCh <- redisItem[V]{k: k, op: redisOpDel}:
-				default:
-				}
-			}
+			c.enqueueRedis(redisItem[V]{k: k, op: redisOpDel})
 			return v.Object, true
 		}
 	}
 	delete(c.items, k)
 	// Redis Async Delete (even if onEvicted is nil)
-	if c.redisClient != nil && c.redisCh != nil {
-		select {
-		case c.redisCh <- redisItem[V]{k: k, op: redisOpDel}:
-		default:
-		}
-	}
+	c.enqueueRedis(redisItem[V]{k: k, op: redisOpDel})
 	var zero V
 	return zero, false
 }
@@ -789,6 +966,12 @@ func (c *cache[V]) redisWorker(ch chan redisItem[V]) {
 				data, err := json.Marshal(item.v)
 				if err == nil {
 					c.redisClient.Set(c.ctx, item.k, data, item.d)
+				}
+			case redisOpSetNX:
+				// Best-effort async SETNX for local-authoritative SetNX.
+				data, err := json.Marshal(item.v)
+				if err == nil {
+					c.redisClient.SetNX(c.ctx, item.k, data, item.d)
 				}
 			case redisOpDel:
 				c.redisClient.Del(c.ctx, item.k)
