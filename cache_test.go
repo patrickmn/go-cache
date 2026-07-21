@@ -1769,3 +1769,23 @@ func TestGetWithExpiration(t *testing.T) {
 		t.Error("expiration for e is in the past")
 	}
 }
+
+
+func TestStopJanitor(t *testing.T) {
+	tc := New(DefaultExpiration, 50*time.Millisecond)
+	tc.Set("a", "b", DefaultExpiration)
+	tc.Stop()
+	// Second Stop must be a no-op.
+	tc.Stop()
+	// Cache remains usable after Stop.
+	tc.Set("c", "d", DefaultExpiration)
+	v, found := tc.Get("c")
+	if !found || v != "d" {
+		t.Fatalf("expected usable cache after Stop, got %v %v", v, found)
+	}
+}
+
+func TestStopWithoutJanitor(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.Stop() // no-op path
+}
