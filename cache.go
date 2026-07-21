@@ -1087,16 +1087,41 @@ func (j *janitor) Run(c *cache) {
 }
 
 func stopJanitor(c *Cache) {
-	c.janitor.stop <- true
+	if c == nil || c.cache == nil || c.janitor == nil {
+		return
+	}
+	// Non-blocking send: Stop may already have closed the janitor.
+	select {
+	case c.janitor.stop <- true:
+	default:
+	}
+	c.janitor = nil
 }
 
 func runJanitor(c *cache, ci time.Duration) {
 	j := &janitor{
 		Interval: ci,
-		stop:     make(chan bool),
+		stop:     make(chan bool, 1),
 	}
 	c.janitor = j
 	go j.Run(c)
+}
+
+// Stop ends the background janitor goroutine, if one is running.
+// It is safe to call multiple times. After Stop, expired items are no longer
+// removed automatically; callers may still invoke DeleteExpired manually.
+//
+// Prefer Stop over relying solely on the finalizer when the cache is used in
+// tests (including testing/synctest) or short-lived processes that check for
+// goroutine leaks.
+func (c *Cache) Stop() {
+	if c == nil || c.cache == nil {
+		return
+	}
+	if c.janitor != nil {
+		stopJanitor(c)
+	}
+	runtime.SetFinalizer(c, nil)
 }
 
 func newCache(de time.Duration, m map[string]Item) *cache {
