@@ -1247,6 +1247,30 @@ func TestOnEvicted(t *testing.T) {
 	}
 }
 
+func TestOnEvictedExpiredOverwrite(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	var gotKey string
+	var gotVal interface{}
+	tc.OnEvicted(func(k string, v interface{}) {
+		gotKey = k
+		gotVal = v
+	})
+	tc.Set("foo", "old", 1*time.Millisecond)
+	<-time.After(5 * time.Millisecond)
+	if _, found := tc.Get("foo"); found {
+		t.Fatal("expected expired get to miss")
+	}
+	tc.Set("foo", "new", DefaultExpiration)
+	if gotKey != "foo" || gotVal.(string) != "old" {
+		t.Fatalf("OnEvicted = (%q, %#v), want (foo, old)", gotKey, gotVal)
+	}
+	gotKey = ""
+	tc.Set("foo", "newer", DefaultExpiration)
+	if gotKey != "" {
+		t.Fatal("live overwrite must not call OnEvicted")
+	}
+}
+
 func TestCacheSerialization(t *testing.T) {
 	tc := New(DefaultExpiration, 0)
 	testFillAndSerialize(t, tc)
