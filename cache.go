@@ -49,25 +49,15 @@ type cache struct {
 // (DefaultExpiration), the cache's default expiration time is used. If it is -1
 // (NoExpiration), the item never expires.
 func (c *cache) Set(k string, x interface{}, d time.Duration) {
-	// "Inlining" of set
-	var e int64
-	if d == DefaultExpiration {
-		d = c.defaultExpiration
-	}
-	if d > 0 {
-		e = time.Now().Add(d).UnixNano()
-	}
 	c.mu.Lock()
-	c.items[k] = Item{
-		Object:     x,
-		Expiration: e,
-	}
-	// TODO: Calls to mu.Unlock are currently not deferred because defer
-	// adds ~200 ns (as of go1.)
+	ov, evicted := c.set(k, x, d)
 	c.mu.Unlock()
+	if evicted {
+		c.onEvicted(k, ov)
+	}
 }
 
-func (c *cache) set(k string, x interface{}, d time.Duration) {
+func (c *cache) set(k string, x interface{}, d time.Duration) (interface{}, bool) {
 	var e int64
 	if d == DefaultExpiration {
 		d = c.defaultExpiration
@@ -75,10 +65,19 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 	if d > 0 {
 		e = time.Now().Add(d).UnixNano()
 	}
+	var evictedValue interface{}
+	evicted := false
+	if c.onEvicted != nil {
+		if old, found := c.items[k]; found && old.Expired() {
+			evictedValue = old.Object
+			evicted = true
+		}
+	}
 	c.items[k] = Item{
 		Object:     x,
 		Expiration: e,
 	}
+	return evictedValue, evicted
 }
 
 // Add an item to the cache, replacing any existing item, using the default
@@ -96,8 +95,11 @@ func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 		c.mu.Unlock()
 		return fmt.Errorf("Item %s already exists", k)
 	}
-	c.set(k, x, d)
+	ov, evicted := c.set(k, x, d)
 	c.mu.Unlock()
+	if evicted {
+		c.onEvicted(k, ov)
+	}
 	return nil
 }
 
@@ -948,8 +950,9 @@ func (c *cache) DeleteExpired() {
 }
 
 // Sets an (optional) function that is called with the key and value when an
-// item is evicted from the cache. (Including when it is deleted manually, but
-// not when it is overwritten.) Set to nil to disable.
+// item is evicted from the cache. (Including when it is deleted manually, and
+// when an expired item is replaced. A live overwrite does not evict.) Set to
+// nil to disable.
 func (c *cache) OnEvicted(f func(string, interface{})) {
 	c.mu.Lock()
 	c.onEvicted = f
