@@ -1071,6 +1071,7 @@ func (c *cache) Flush() {
 type janitor struct {
 	Interval time.Duration
 	stop     chan bool
+	stopOnce sync.Once
 }
 
 func (j *janitor) Run(c *cache) {
@@ -1087,7 +1088,24 @@ func (j *janitor) Run(c *cache) {
 }
 
 func stopJanitor(c *Cache) {
-	c.janitor.stop <- true
+	if c == nil || c.janitor == nil {
+		return
+	}
+	c.janitor.stopOnce.Do(func() {
+		close(c.janitor.stop)
+	})
+}
+
+// Close stops the janitor goroutine if one is running. It is safe to call more
+// than once, including when no janitor was started (cleanupInterval <= 0).
+// After Close, expired items are no longer deleted automatically; call
+// DeleteExpired yourself if needed.
+func (c *Cache) Close() {
+	if c == nil || c.janitor == nil {
+		return
+	}
+	runtime.SetFinalizer(c, nil)
+	stopJanitor(c)
 }
 
 func runJanitor(c *cache, ci time.Duration) {

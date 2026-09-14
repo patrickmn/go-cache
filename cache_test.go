@@ -1769,3 +1769,22 @@ func TestGetWithExpiration(t *testing.T) {
 		t.Error("expiration for e is in the past")
 	}
 }
+
+func TestCacheCloseStopsJanitor(t *testing.T) {
+	tc := New(DefaultExpiration, time.Millisecond)
+	tc.Set("a", 1, DefaultExpiration)
+	tc.Close()
+	tc.Close() // idempotent
+	if x, found := tc.Get("a"); !found || x.(int) != 1 {
+		t.Error("cache unusable after Close")
+	}
+}
+
+func TestCacheCloseWithoutJanitor(t *testing.T) {
+	tc := New(DefaultExpiration, 0)
+	tc.Close()
+	tc.Set("a", 1, DefaultExpiration)
+	if x, found := tc.Get("a"); !found || x.(int) != 1 {
+		t.Error("cache unusable after Close with no janitor")
+	}
+}
