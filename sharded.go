@@ -123,6 +123,20 @@ func (sc *shardedCache) Flush() {
 	}
 }
 
+func (sc *shardedCache) DefaultExpiration() time.Duration {
+	if len(sc.cs) == 0 {
+		return 0
+	}
+	return sc.cs[0].defaultExpiration
+}
+
+func (sc *shardedCache) CleanupInterval() time.Duration {
+	if sc.janitor == nil {
+		return 0
+	}
+	return sc.janitor.Interval
+}
+
 type shardedJanitor struct {
 	Interval time.Duration
 	stop     chan bool

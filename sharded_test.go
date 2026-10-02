@@ -83,3 +83,20 @@ func benchmarkShardedCacheGetManyConcurrent(b *testing.B, exp time.Duration) {
 	b.StartTimer()
 	wg.Wait()
 }
+
+func TestShardedCacheDurations(t *testing.T) {
+	exp := 50 * time.Millisecond
+	ci := 10 * time.Millisecond
+	tc := unexportedNewSharded(exp, ci, 10)
+	if tc.DefaultExpiration() != exp {
+		t.Errorf("expected default expiration %v, got %v", exp, tc.DefaultExpiration())
+	}
+	if tc.CleanupInterval() != ci {
+		t.Errorf("expected cleanup interval %v, got %v", ci, tc.CleanupInterval())
+	}
+
+	tcNoJanitor := unexportedNewSharded(exp, 0, 10)
+	if tcNoJanitor.CleanupInterval() != 0 {
+		t.Errorf("expected cleanup interval 0, got %v", tcNoJanitor.CleanupInterval())
+	}
+}

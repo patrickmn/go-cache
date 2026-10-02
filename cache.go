@@ -1068,6 +1068,20 @@ func (c *cache) Flush() {
 	c.mu.Unlock()
 }
 
+// Return the default expiration duration for the cache.
+func (c *cache) DefaultExpiration() time.Duration {
+	return c.defaultExpiration
+}
+
+// Return the interval between janitor cleanups. If the janitor is not running,
+// returns 0.
+func (c *cache) CleanupInterval() time.Duration {
+	if c.janitor == nil {
+		return 0
+	}
+	return c.janitor.Interval
+}
+
 type janitor struct {
 	Interval time.Duration
 	stop     chan bool

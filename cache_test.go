@@ -108,11 +108,11 @@ func TestCacheTimes(t *testing.T) {
 
 func TestNewFrom(t *testing.T) {
 	m := map[string]Item{
-		"a": Item{
+		"a": {
 			Object:     1,
 			Expiration: 0,
 		},
-		"b": Item{
+		"b": {
 			Object:     2,
 			Expiration: 0,
 		},
@@ -1267,14 +1267,14 @@ func testFillAndSerialize(t *testing.T, tc *Cache) {
 		{Num: 3},
 	}, DefaultExpiration)
 	tc.Set("[]*struct", []*TestStruct{
-		&TestStruct{Num: 4},
-		&TestStruct{Num: 5},
+		{Num: 4},
+		{Num: 5},
 	}, DefaultExpiration)
 	tc.Set("structception", &TestStruct{
 		Num: 42,
 		Children: []*TestStruct{
-			&TestStruct{Num: 6174},
-			&TestStruct{Num: 4716},
+			{Num: 6174},
+			{Num: 4716},
 		},
 	}, DefaultExpiration)
 
@@ -1767,5 +1767,41 @@ func TestGetWithExpiration(t *testing.T) {
 	}
 	if expiration.UnixNano() < time.Now().UnixNano() {
 		t.Error("expiration for e is in the past")
+	}
+}
+
+func TestDefaultExpirationAndCleanupInterval(t *testing.T) {
+	exp := 50 * time.Millisecond
+	ci := 10 * time.Millisecond
+	tc := New(exp, ci)
+	if tc.DefaultExpiration() != exp {
+		t.Errorf("expected default expiration %v, got %v", exp, tc.DefaultExpiration())
+	}
+	if tc.CleanupInterval() != ci {
+		t.Errorf("expected cleanup interval %v, got %v", ci, tc.CleanupInterval())
+	}
+
+	tcNoJanitor := New(exp, 0)
+	if tcNoJanitor.CleanupInterval() != 0 {
+		t.Errorf("expected cleanup interval 0, got %v", tcNoJanitor.CleanupInterval())
+	}
+
+	m := map[string]Item{
+		"a": {
+			Object:     1,
+			Expiration: 0,
+		},
+	}
+	tcFrom := NewFrom(exp, ci, m)
+	if tcFrom.DefaultExpiration() != exp {
+		t.Errorf("expected default expiration %v, got %v", exp, tcFrom.DefaultExpiration())
+	}
+	if tcFrom.CleanupInterval() != ci {
+		t.Errorf("expected cleanup interval %v, got %v", ci, tcFrom.CleanupInterval())
+	}
+
+	tcFromNoJanitor := NewFrom(exp, 0, m)
+	if tcFromNoJanitor.CleanupInterval() != 0 {
+		t.Errorf("expected cleanup interval 0, got %v", tcFromNoJanitor.CleanupInterval())
 	}
 }
