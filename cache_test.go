@@ -1247,7 +1247,6 @@ func TestOnEvicted(t *testing.T) {
 	}
 }
 
-
 func TestConcurrentOnEvictedAndDelete(t *testing.T) {
 	// Regression for #198: OnEvicted must not race with Delete reading the
 	// callback after unlocking, and must not panic if the callback is cleared
@@ -1260,6 +1259,31 @@ func TestConcurrentOnEvictedAndDelete(t *testing.T) {
 		for i := 0; i < 10000; i++ {
 			c.Set("key", i, NoExpiration)
 			c.Delete("key")
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 10000; i++ {
+			c.OnEvicted(func(string, interface{}) {})
+			c.OnEvicted(nil)
+		}
+	}()
+	wg.Wait()
+}
+
+func TestConcurrentOnEvictedAndDeleteExpired(t *testing.T) {
+	// Regression for #198: DeleteExpired must snapshot the callback under
+	// the lock as well, so changing or clearing OnEvicted concurrently
+	// neither races nor panics.
+	c := New(NoExpiration, 0)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 10000; i++ {
+			c.Set("key", i, time.Nanosecond)
+			time.Sleep(time.Nanosecond)
+			c.DeleteExpired()
 		}
 	}()
 	go func() {
