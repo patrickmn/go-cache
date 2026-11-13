@@ -905,9 +905,10 @@ func (c *cache) DecrementFloat64(k string, n float64) (float64, error) {
 func (c *cache) Delete(k string) {
 	c.mu.Lock()
 	v, evicted := c.delete(k)
+	onEvicted := c.onEvicted
 	c.mu.Unlock()
-	if evicted {
-		c.onEvicted(k, v)
+	if evicted && onEvicted != nil {
+		onEvicted(k, v)
 	}
 }
 
@@ -941,9 +942,12 @@ func (c *cache) DeleteExpired() {
 			}
 		}
 	}
+	onEvicted := c.onEvicted
 	c.mu.Unlock()
-	for _, v := range evictedItems {
-		c.onEvicted(v.key, v.value)
+	if onEvicted != nil {
+		for _, v := range evictedItems {
+			onEvicted(v.key, v.value)
+		}
 	}
 }
 
